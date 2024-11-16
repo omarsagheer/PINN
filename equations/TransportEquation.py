@@ -1,0 +1,52 @@
+import torch
+
+from new_trial.F_PINN import F_PINN
+
+
+class TransportPDE(F_PINN):
+    def __init__(self, n_int_, n_sb_, n_tb_, time_domain_=None, space_domain_=None, lambda_u=10,
+                 n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
+        super().__init__(n_int_, n_sb_, n_tb_, time_domain_, space_domain_, lambda_u, n_hidden_layers, neurons,
+                         regularization_param, regularization_exp, retrain_seed)
+        self.c = 1.0
+
+    def initial_condition(self, x):
+        return torch.square(x)
+
+    def left_boundary_condition(self, t):
+        return torch.square(t)
+
+    def right_boundary_condition(self, t):
+        # 2(5-t)
+        return 2 * (- t)
+
+    def exact_solution(self, inputs):
+        t = inputs[:, 0]
+        x = inputs[:, 1]
+        u = torch.square(x-t)
+        return u
+
+    def compute_pde_residual(self, input_int):
+        input_int.requires_grad = True
+        u = self.approximate_solution(input_int)
+
+        grad_u = torch.autograd.grad(u.sum(), input_int, create_graph=True)[0]
+        grad_u_t = grad_u[:, 0]
+        grad_u_x = grad_u[:, 1]
+
+
+        residual = grad_u_t + self.c * grad_u_x
+        return residual.reshape(-1, )
+
+    def apply_right_boundary_derivative(self, inp_train_sb_right):
+        inp_train_sb_right.requires_grad = True
+        u = self.approximate_solution(inp_train_sb_right)
+        grad_u = torch.autograd.grad(u.sum(), inp_train_sb_right, create_graph=True)[0]
+        grad_u_x = grad_u[:, 1]
+        return self.ms(grad_u_x - self.right_boundary_condition(inp_train_sb_right[:, 0]))
+
+    def compute_loss(self, train_points, verbose=True, new_loss=None, right_boundary_loss=None):
+        inp_train_sb_right = train_points[2]
+        right_boundary_loss = self.apply_right_boundary_derivative(inp_train_sb_right)
+        loss = super().compute_loss(train_points, verbose, right_boundary_loss, True)
+        return loss
