@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from new_trial.F_PINN import F_PINN
+from F_PINN import F_PINN
 
 
 class DiffusionPDE(F_PINN):

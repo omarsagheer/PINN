@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from new_trial.F_PINN import F_PINN
+from F_PINN import F_PINN
 torch.set_default_dtype(torch.float64)
 
 class WavePDE(F_PINN):

@@ -1,6 +1,6 @@
 import torch
 
-from new_trial.F_PINN import F_PINN
+from F_PINN import F_PINN
 
 
 class TransportPDE(F_PINN):
