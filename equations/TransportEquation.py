@@ -17,7 +17,6 @@ class TransportPDE(F_PINN):
         return torch.square(t)
 
     def right_boundary_condition(self, t):
-        # 2(5-t)
         return 2 * (- t)
 
     def exact_solution(self, inputs):

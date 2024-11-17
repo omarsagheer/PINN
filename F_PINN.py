@@ -4,9 +4,11 @@ import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from torch import optim
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
-from new_trial.Common import NeuralNet
+from Common import NeuralNet, TrainingConfig, EarlyStopping
+
 torch.set_default_dtype(torch.float64)
 
 class F_PINN(ABC):
@@ -67,23 +69,6 @@ class F_PINN(ABC):
 
         return input_tb, output_tb
 
-    # def add_spatial_boundary_points(self):
-    #     x_left = self.domain_extrema[1, 0]
-    #     x_right = self.domain_extrema[1, 1]
-    #
-    #     input_sb = self.convert(self.soboleng.draw(self.n_sb))
-    #     input_sb = input_sb.to(torch.float64)
-    #
-    #     input_sb_left = torch.clone(input_sb)
-    #     input_sb_left[:, 1] = torch.full(input_sb_left[:, 1].shape, x_left)
-    #
-    #     input_sb_right = torch.clone(input_sb)
-    #     input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right)
-    #
-    #     output_sb_left = self.left_boundary_condition(input_sb_left[:, 0]).reshape(-1, 1)
-    #     output_sb_right = self.right_boundary_condition(input_sb_right[:, 0]).reshape(-1, 1)
-    #     return torch.cat((input_sb_left, input_sb_right), 0), torch.cat((output_sb_left, output_sb_right), 0)
-
     def add_spatial_boundary_points_left(self):
         x_left = self.domain_extrema[1, 0]
 
@@ -120,12 +105,11 @@ class F_PINN(ABC):
 
     # Function returning the training sets S_sb, S_tb, S_int as dataloader
     def assemble_datasets(self):
-        # input_sb, output_sb = self.add_spatial_boundary_points()   # S_sb
         input_sb_left, output_sb_left = self.add_spatial_boundary_points_left()
         input_sb_right, output_sb_right = self.add_spatial_boundary_points_right()
         input_tb, output_tb = self.add_temporal_boundary_points()  # S_tb
         input_int, output_int = self.add_interior_points()         # S_int
-        # training_set_sb = DataLoader(torch.utils.data.TensorDataset(input_sb, output_sb), batch_size=2*self.n_sb, shuffle=False)
+
         training_set_sb_left = DataLoader(torch.utils.data.TensorDataset(input_sb_left, output_sb_left), batch_size=self.n_sb, shuffle=False)
         training_set_sb_right = DataLoader(torch.utils.data.TensorDataset(input_sb_right, output_sb_right), batch_size=self.n_sb, shuffle=False)
         training_set_tb = DataLoader(torch.utils.data.TensorDataset(input_tb, output_tb), batch_size=self.n_tb, shuffle=False)
@@ -216,7 +200,155 @@ class F_PINN(ABC):
 
         return history
 
-        ################################################################################################
+    def enhanced_fit(self, num_epochs, optimizer, config=None, verbose=True):
+        """
+        Enhanced training loop supporting both ADAM and LBFGS optimizers.
+
+        Args:
+            num_epochs (int): Number of epochs to train
+            optimizer: PyTorch optimizer instance (ADAM or LBFGS)
+            config (TrainingConfig, optional): Training configuration
+            verbose (bool): Whether to print training progress
+        """
+        if config is None:
+            config = TrainingConfig(num_epochs=num_epochs)
+
+        history = {
+            'total_loss': [],
+            'pde_loss': [],
+            'boundary_loss': [],
+            'learning_rate': []
+        }
+
+        # Check if using LBFGS
+        is_lbfgs = isinstance(optimizer, torch.optim.LBFGS)
+
+        # Initialize learning rate scheduler (only for ADAM)
+        scheduler = None
+        if not is_lbfgs:
+            scheduler = ReduceLROnPlateau(
+                optimizer,
+                mode='min',
+                factor=config.scheduler_factor,
+                patience=config.scheduler_patience,
+                min_lr=config.scheduler_min_lr,
+                verbose=verbose
+            )
+
+        # Initialize early stopping
+        early_stopping = EarlyStopping(
+            patience=config.early_stopping_patience,
+            min_delta=config.early_stopping_min_delta
+        )
+
+        # Get training datasets
+        training_set_sb_left, training_set_sb_right, training_set_tb, training_set_int = self.assemble_datasets()
+
+        for epoch in range(num_epochs):
+            epoch_losses = []
+
+            if verbose and epoch % max(1, num_epochs // 10) == 0:
+                print(f"\nEpoch [{epoch + 1}/{num_epochs}]")
+
+            for j, ((inp_train_sb_left, u_train_sb_left),
+                    (inp_train_sb_right, u_train_sb_right),
+                    (inp_train_tb, u_train_tb),
+                    (inp_train_int, u_train_int)) in enumerate(
+                zip(training_set_sb_left, training_set_sb_right,
+                    training_set_tb, training_set_int)):
+
+                # Enable gradients for input tensors
+                inp_train_sb_left.requires_grad_(True)
+                inp_train_sb_right.requires_grad_(True)
+                inp_train_tb.requires_grad_(True)
+                inp_train_int.requires_grad_(True)
+
+                def closure():
+                    if is_lbfgs:
+                        optimizer.zero_grad()
+
+                    # Prepare training points
+                    train_points = (
+                        inp_train_sb_left, u_train_sb_left,
+                        inp_train_sb_right, u_train_sb_right,
+                        inp_train_tb, u_train_tb,
+                        inp_train_int
+                    )
+
+                    # Compute main loss
+                    loss = self.compute_loss(train_points, verbose=False)
+
+                    # Store individual loss components
+                    if not is_lbfgs:  # Only compute components for ADAM (for monitoring)
+                        with torch.no_grad():
+                            try:
+                                r_int = self.compute_pde_residual(inp_train_int)
+                                pde_loss = self.ms(r_int)
+                                boundary_loss = loss - torch.log10(pde_loss)
+                            except:
+                                pde_loss = torch.tensor(0.0)
+                                boundary_loss = loss
+
+                            epoch_losses.append({
+                                'total': loss.item(),
+                                'pde': pde_loss.item(),
+                                'boundary': boundary_loss.item()
+                            })
+
+                    loss.backward()
+
+                    if is_lbfgs:
+                        # For LBFGS, store loss in the last iteration
+                        epoch_losses.append({
+                            'total': loss.item(),
+                            'pde': 0.0,  # We don't compute individual components for LBFGS
+                            'boundary': 0.0
+                        })
+
+                    return loss
+
+                if is_lbfgs:
+                    optimizer.step(closure)
+                else:
+                    # For ADAM
+                    optimizer.zero_grad()
+                    loss = closure()
+                    optimizer.step()
+
+            # Calculate average losses for the epoch
+            avg_losses = {
+                k: np.mean([loss[k] for loss in epoch_losses])
+                for k in ['total', 'pde', 'boundary']
+            }
+
+            # Update history
+            history['total_loss'].append(avg_losses['total'])
+            history['pde_loss'].append(avg_losses['pde'])
+            history['boundary_loss'].append(avg_losses['boundary'])
+            history['learning_rate'].append(optimizer.param_groups[0]['lr'])
+
+            # Update learning rate (only for ADAM)
+            if scheduler is not None:
+                scheduler.step(avg_losses['total'])
+
+            if verbose and epoch % max(1, num_epochs // 10) == 0:
+                print(f"Total Loss: {avg_losses['total']:.6f} | "
+                      f"LR: {optimizer.param_groups[0]['lr']:.6e}")
+                if not is_lbfgs:
+                    print(f"PDE Loss: {avg_losses['pde']:.6f} | "
+                          f"Boundary Loss: {avg_losses['boundary']:.6f}")
+
+            # Early stopping check
+            if early_stopping(self.approximate_solution, avg_losses['total']):
+                if verbose:
+                    print(f"\nEarly stopping triggered at epoch {epoch + 1}")
+                early_stopping.restore_best_weights(self.approximate_solution)
+                break
+
+        if verbose:
+            print(f"\nTraining completed. Final loss: {history['total_loss'][-1]:.6f}")
+
+        return history
 
     def relative_L2_error(self, n_points=10000):
         inputs = self.soboleng.draw(n_points)
@@ -230,7 +362,7 @@ class F_PINN(ABC):
         print('L2 Relative Error Norm: ', err.item(), '%')
         return inputs, output, exact_output
 
-    def plotting(self, n_points=10000):
+    def plotting(self, n_points=25000):
         inputs, output, exact_output = self.relative_L2_error(n_points)
 
         fig, axs = plt.subplots(1, 2, figsize=(16, 8), dpi=150)
@@ -278,14 +410,58 @@ class F_PINN(ABC):
         plt.legend()
         plt.show()
 
+    @staticmethod
+    def plot_training_history(history):
+        """Plot training history including losses and learning rate."""
+        import matplotlib.pyplot as plt
 
-    def optimizer_LBFGS(self, lr=0.5, max_iter=1000, max_eval=10000, history_size=150, line_search_fn="strong_wolfe",
-                        tolerance_change=1.0 * np.finfo(float).eps):
-        return optim.LBFGS(self.approximate_solution.parameters(), lr=float(lr), max_iter=max_iter, max_eval=max_eval,
-                           history_size=history_size, line_search_fn=line_search_fn, tolerance_change=tolerance_change)
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
 
+        # Plot losses
+        ax1.plot(history['total_loss'], label='Total Loss')
+        ax1.plot(history['pde_loss'], label='PDE Loss')
+        ax1.plot(history['boundary_loss'], label='Boundary Loss')
+        ax1.set_yscale('log')
+        ax1.set_xlabel('Epoch')
+        ax1.set_ylabel('Loss')
+        ax1.legend()
+        ax1.grid(True)
+
+        # Plot learning rate
+        ax2.plot(history['learning_rate'], label='Learning Rate')
+        ax2.set_yscale('log')
+        ax2.set_xlabel('Epoch')
+        ax2.set_ylabel('Learning Rate')
+        ax2.legend()
+        ax2.grid(True)
+
+        plt.tight_layout()
+        plt.show()
+
+    def optimizer_LBFGS(self, config):
+        """Create LBFGS optimizer with specified configuration."""
+        return torch.optim.LBFGS(
+            self.approximate_solution.parameters(),
+            lr=float(config.scheduler_min_lr),
+            max_iter=config.max_iter,
+            max_eval=config.max_eval,
+            history_size=config.history_size,
+            line_search_fn=config.line_search_fn
+        )
 
     def optimizer_ADAM(self, lr=1e-5):
         return optim.Adam(self.approximate_solution.parameters(), lr=float(lr))
 
 
+def save_model(self, path):
+    state = {
+        'model_state': self.approximate_solution.state_dict(),
+        'optimizer_state': self.optimizer.state_dict(),
+        'config': self.config
+    }
+    torch.save(state, path)
+
+def load_model(self, path):
+    state = torch.load(path)
+    self.approximate_solution.load_state_dict(state['model_state'])
+    self.optimizer.load_state_dict(state['optimizer_state'])

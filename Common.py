@@ -1,6 +1,7 @@
-import torch.nn as nn
-import torch
 import os
+
+import torch
+import torch.nn as nn
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 torch.manual_seed(42)
@@ -20,8 +21,8 @@ class NeuralNet(nn.Module):
         # Number of hidden layers
         self.n_hidden_layers = n_hidden_layers
         # Activation function
-        # self.activation = nn.Tanh()
-        self.activation = nn.Sigmoid()
+        self.activation = nn.Tanh()
+        # Regularization parameter
         self.regularization_param = regularization_param
         # Regularization exponent
         self.regularization_exp = regularization_exp
@@ -62,87 +63,49 @@ class NeuralNet(nn.Module):
         return self.regularization_param * reg_loss
 
 
-def fit(model, training_set, num_epochs, optimizer, p, verbose=True):
-    history = list()
-
-    # Loop over epochs
-    for epoch in range(num_epochs):
-        if verbose: print("################################ ", epoch, " ################################")
-
-        running_loss = list([0])
-
-        # Loop over batches
-        for j, (x_train_, u_train_) in enumerate(training_set):
-            def closure():
-                # zero the parameter gradients
-                optimizer.zero_grad()
-                # forward + backward + optimize
-                u_pred_ = model(x_train_)
-                # Item 1. below
-                loss = torch.mean((u_pred_.reshape(-1, ) - u_train_.reshape(-1, )) ** p) + model.regularization()
-                # Item 2. below
-                loss.backward()
-                # Compute average training loss over batches for the current epoch
-                running_loss[0] += loss.item()
-                return loss
-
-            # Item 3. below
-            optimizer.step(closure=closure)
-
-        if verbose: print('Loss: ', (running_loss[0] / len(training_set)))
-        history.append(running_loss[0])
-
-    return history
+from dataclasses import dataclass
+import torch
 
 
-class Legendre(nn.Module):
-    """ Univariate Legendre Polynomial """
-
-    def __init__(self, PolyDegree):
-        super(Legendre, self).__init__()
-        self.degree = PolyDegree
-
-    def legendre(self,x, degree):
-        x = x.reshape(-1, 1)
-        list_poly = list()
-        zeroth_pol = torch.ones(x.size(0),1)
-        list_poly.append(zeroth_pol)
-        # retvar[:, 0] = x * 0 + 1
-        if degree > 0:
-            first_pol = x
-            list_poly.append(first_pol)
-            ith_pol = torch.clone(first_pol)
-            ith_m_pol = torch.clone(zeroth_pol)
-
-            for ii in range(1, degree):
-                ith_p_pol = ((2 * ii + 1) * x * ith_pol - ii * ith_m_pol) / (ii + 1)
-                list_poly.append(ith_p_pol)
-                ith_m_pol = torch.clone(ith_pol)
-                ith_pol = torch.clone(ith_p_pol)
-        list_poly = torch.cat(list_poly,1)
-        return list_poly
-
-    def forward(self, x):
-        eval_poly = self.legendre(x, self.degree)
-        return eval_poly
+@dataclass
+class TrainingConfig:
+    num_epochs: int
+    lambda_u: float = 10.0
+    early_stopping_patience: int = 10
+    early_stopping_min_delta: float = 1e-6
+    scheduler_patience: int = 5
+    scheduler_factor: float = 0.5
+    scheduler_min_lr: float = 1e-6
+    validation_fraction: float = 0.1
+    max_iter: int = 1000  # for LBFGS
+    max_eval: int = None  # for LBFGS
+    history_size: int = 50  # for LBFGS
+    line_search_fn: str = "strong_wolfe"  # for LBFGS
 
 
+class EarlyStopping:
+    def __init__(self, patience, min_delta=1e-6):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.counter = 0
+        self.best_loss = None
+        self.best_state = None
+        self.should_stop = False
 
+    def __call__(self, model, loss):
+        if self.best_loss is None:
+            self.best_loss = loss
+            self.best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+        elif loss > self.best_loss - self.min_delta:
+            self.counter += 1
+            if self.counter >= self.patience:
+                self.should_stop = True
+        else:
+            self.best_loss = loss
+            self.best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+            self.counter = 0
+        return self.should_stop
 
-class MultiVariatePoly(nn.Module):
-
-    def __init__(self, dim, order):
-        super(MultiVariatePoly, self).__init__()
-        self.order = order
-        self.dim = dim
-        self.polys = Legendre(order)
-        self.num = (order + 1) ** dim
-        self.linear = torch.nn.Linear(self.num, 1)
-
-    def forward(self, x):
-        poly_eval = list()
-        leg_eval = torch.cat([self.polys(x[:, i]).reshape(1, x.shape[0], self.order + 1) for i in range(self.dim) ])
-        for i in range(x.shape[0]):
-            poly_eval.append(torch.torch.cartesian_prod(*leg_eval[:, i, :]).prod(dim=1).view(1, -1))
-        poly_eval = torch.cat(poly_eval)
-        return self.linear(poly_eval)
+    def restore_best_weights(self, model):
+        if self.best_state is not None:
+            model.load_state_dict(self.best_state)

@@ -28,8 +28,8 @@ class WavePDE(F_PINN):
         return torch.zeros(t.shape[0], 1)
 
 
-    # Additional condition for du/dt at t=0 velocity
     def apply_initial_derivative_condition(self, input_tb):
+        # Additional condition for du/dt at t=0 velocity
         input_tb.requires_grad = True
         u = self.approximate_solution(input_tb)
         grad_u = torch.autograd.grad(u.sum(), input_tb, create_graph=True)[0]
