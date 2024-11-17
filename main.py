@@ -34,7 +34,7 @@ config = TrainingConfig(
 #     line_search_fn="strong_wolfe"
 # )
 # %% plot the training points
-pde.plot_training_points()
+# pde.plot_training_points()
 
 
 # %% Train the model
@@ -51,7 +51,7 @@ history = pde.enhanced_fit(
 # %% Plot the loss
 # Plot the loss
 # pde.plot_train_loss(hist)
-pde.plot_training_history(history)
+# pde.plot_training_history(history)
 
 # %% Plot the solution
 # pde.relative_L2_error()

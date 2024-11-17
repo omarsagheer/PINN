@@ -9,7 +9,7 @@ class WavePDE(F_PINN):
                  n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
         super().__init__(n_int_, n_sb_, n_tb_, time_domain_, space_domain_, lambda_u, n_hidden_layers, neurons,
                          regularization_param, regularization_exp, retrain_seed)
-        self.c = 10.0
+        self.c = 5.0
 
 
     def exact_solution(self, inputs):
@@ -50,7 +50,9 @@ class WavePDE(F_PINN):
         return residual.reshape(-1, )
 
     def compute_loss(self, train_points, verbose=True, new_loss=None, no_right_boundary=False):
-        loss = super().compute_loss(train_points, verbose, new_loss, no_right_boundary)
+        inp_train_tb = train_points[4]
+        initial_derivative_loss = self.apply_initial_derivative_condition(inp_train_tb)
+        loss = super().compute_loss(train_points, verbose, initial_derivative_loss, no_right_boundary)
         return loss
 
 

@@ -172,33 +172,33 @@ class F_PINN(ABC):
         if verbose: print('Total loss: ', round(loss.item(), 4), '| PDE Loss: ', round(torch.log10(loss_u).item(), 4),
                           '| Function Loss: ', round(torch.log10(loss_int).item(), 4))
 
-        return loss
+        return loss, loss_u, loss_int
 
     ################################################################################################
-    def fit(self, num_epochs, optimizer, verbose=True):
-        history = list()
-        training_set_sb_left, training_set_sb_right, training_set_tb, training_set_int = self.assemble_datasets()
-        # Loop over epochs
-        for epoch in range(num_epochs):
-            if verbose: print('################################ ', epoch, ' ################################')
-
-            for j, ((inp_train_sb_left, u_train_sb_left), (inp_train_sb_right, u_train_sb_right),
-                    (inp_train_tb, u_train_tb), (inp_train_int, u_train_int)) \
-                    in enumerate(zip(training_set_sb_left, training_set_sb_right, training_set_tb, training_set_int)):
-                def closure():
-                    optimizer.zero_grad()
-                    train_points = (inp_train_sb_left, u_train_sb_left, inp_train_sb_right, u_train_sb_right, inp_train_tb, u_train_tb, inp_train_int)
-                    loss = self.compute_loss(train_points, verbose=verbose)
-                    loss.backward()
-
-                    history.append(loss.item())
-                    return loss
-
-                optimizer.step(closure=closure)
-
-        print('Final Loss: ', history[-1])
-
-        return history
+    # def fit(self, num_epochs, optimizer, verbose=True):
+    #     history = list()
+    #     training_set_sb_left, training_set_sb_right, training_set_tb, training_set_int = self.assemble_datasets()
+    #     # Loop over epochs
+    #     for epoch in range(num_epochs):
+    #         if verbose: print('################################ ', epoch, ' ################################')
+    #
+    #         for j, ((inp_train_sb_left, u_train_sb_left), (inp_train_sb_right, u_train_sb_right),
+    #                 (inp_train_tb, u_train_tb), (inp_train_int, u_train_int)) \
+    #                 in enumerate(zip(training_set_sb_left, training_set_sb_right, training_set_tb, training_set_int)):
+    #             def closure():
+    #                 optimizer.zero_grad()
+    #                 train_points = (inp_train_sb_left, u_train_sb_left, inp_train_sb_right, u_train_sb_right, inp_train_tb, u_train_tb, inp_train_int)
+    #                 loss, _, _ = self.compute_loss(train_points, verbose=verbose)
+    #                 loss.backward()
+    #
+    #                 history.append(loss.item())
+    #                 return loss
+    #
+    #             optimizer.step(closure=closure)
+    #
+    #     print('Final Loss: ', history[-1])
+    #
+    #     return history
 
     def enhanced_fit(self, num_epochs, optimizer, config=None, verbose=True):
         """
@@ -276,35 +276,14 @@ class F_PINN(ABC):
                     )
 
                     # Compute main loss
-                    loss = self.compute_loss(train_points, verbose=False)
-
-                    # Store individual loss components
-                    if not is_lbfgs:  # Only compute components for ADAM (for monitoring)
-                        with torch.no_grad():
-                            try:
-                                r_int = self.compute_pde_residual(inp_train_int)
-                                pde_loss = self.ms(r_int)
-                                boundary_loss = loss - torch.log10(pde_loss)
-                            except:
-                                pde_loss = torch.tensor(0.0)
-                                boundary_loss = loss
-
-                            epoch_losses.append({
-                                'total': loss.item(),
-                                'pde': pde_loss.item(),
-                                'boundary': boundary_loss.item()
-                            })
+                    loss, loss_u, loss_int = self.compute_loss(train_points, verbose=False)
+                    epoch_losses.append({
+                        'total': loss.item(),
+                        'pde': torch.log10(loss_int).item(),
+                        'boundary': torch.log10(loss_u).item()
+                    })
 
                     loss.backward()
-
-                    if is_lbfgs:
-                        # For LBFGS, store loss in the last iteration
-                        epoch_losses.append({
-                            'total': loss.item(),
-                            'pde': 0.0,  # We don't compute individual components for LBFGS
-                            'boundary': 0.0
-                        })
-
                     return loss
 
                 if is_lbfgs:
@@ -334,8 +313,8 @@ class F_PINN(ABC):
             if verbose and epoch % max(1, num_epochs // 10) == 0:
                 print(f"Total Loss: {avg_losses['total']:.6f} | "
                       f"LR: {optimizer.param_groups[0]['lr']:.6e}")
-                if not is_lbfgs:
-                    print(f"PDE Loss: {avg_losses['pde']:.6f} | "
+                # if not is_lbfgs:
+                print(f"PDE Loss: {avg_losses['pde']:.6f} | "
                           f"Boundary Loss: {avg_losses['boundary']:.6f}")
 
             # Early stopping check
