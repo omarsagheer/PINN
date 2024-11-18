@@ -79,6 +79,7 @@ class TrainingConfig:
     validation_fraction: float = 0.1
     max_iter: int = 1000  # for LBFGS
     max_eval: int = None  # for LBFGS
+    lr: float = 0.5  # for LBFGS
     history_size: int = 50  # for LBFGS
     line_search_fn: str = "strong_wolfe"  # for LBFGS
 

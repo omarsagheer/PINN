@@ -7,9 +7,11 @@ torch.set_default_dtype(torch.float64)
 class WavePDE(F_PINN):
     def __init__(self, n_int_, n_sb_, n_tb_, time_domain_=None, space_domain_=None, lambda_u=10,
                  n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
+        self.c = 10.0
+        time_domain_ = [0, 1/self.c]
+        space_domain_ = [0, self.c]
         super().__init__(n_int_, n_sb_, n_tb_, time_domain_, space_domain_, lambda_u, n_hidden_layers, neurons,
                          regularization_param, regularization_exp, retrain_seed)
-        self.c = 5.0
 
 
     def exact_solution(self, inputs):
@@ -46,7 +48,7 @@ class WavePDE(F_PINN):
         grad_u_xx = torch.autograd.grad(grad_u_x.sum(), input_int, create_graph=True)[0][:, 1]
         grad_u_tt = torch.autograd.grad(grad_u_t.sum(), input_int, create_graph=True)[0][:, 0]
 
-        residual = grad_u_tt - self.c ** 2 * grad_u_xx
+        residual = (grad_u_tt - self.c ** 2 * grad_u_xx)/self.c**2
         return residual.reshape(-1, )
 
     def compute_loss(self, train_points, verbose=True, new_loss=None, no_right_boundary=False):
