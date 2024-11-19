@@ -13,12 +13,23 @@ torch.set_default_dtype(torch.float64)
 
 class F_PINN(ABC):
     def __init__(self, n_int_, n_sb_, n_tb_, time_domain_=None, space_domain_=None, lambda_u=10,
-                 n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
+                 n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42,
+                 rescale_to_0_1=False):
 
         if time_domain_ is None:
             time_domain_ = [0, 1]
         if space_domain_ is None:
             space_domain_ = [0, 1]
+
+        if rescale_to_0_1:
+            self.Te = time_domain_[1]
+            self.zf = space_domain_[1]
+        else:
+            self.Te = 1
+            self.zf = 1
+
+        self.rescale_to_0_1 = rescale_to_0_1
+
         self.n_int = n_int_
         self.n_sb = n_sb_
         self.n_tb = n_tb_
@@ -41,7 +52,10 @@ class F_PINN(ABC):
     # to a tensor whose values are between the domain extrema
     def convert(self, tens):
         assert (tens.shape[1] == self.domain_extrema.shape[0])
-        return tens * (self.domain_extrema[:, 1] - self.domain_extrema[:, 0]) + self.domain_extrema[:, 0]
+        if self.rescale_to_0_1:
+            return tens
+        else:
+            return tens * (self.domain_extrema[:, 1] - self.domain_extrema[:, 0]) + self.domain_extrema[:, 0]
 
     @abstractmethod
     def initial_condition(self, x):
@@ -89,7 +103,11 @@ class F_PINN(ABC):
         input_sb = input_sb.to(torch.float64)
 
         input_sb_right = torch.clone(input_sb)
-        input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right)
+
+        if self.rescale_to_0_1:
+            input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right/self.zf)
+        else:
+            input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right)
 
         output_sb_right = self.right_boundary_condition(input_sb_right[:, 0]).reshape(-1, 1)
         return input_sb_right, output_sb_right
@@ -162,7 +180,13 @@ class F_PINN(ABC):
         loss_sb_right = self.ms(r_sb_right)
         loss_tb = self.ms(r_tb)
         loss_int = self.ms(r_int)
-
+        # print('loss_sb_left: ', loss_sb_left)
+        # # print('loss_sb_right: ', loss_sb_right)
+        # print('loss_tb: ', loss_tb)
+        # print('loss_int: ', loss_int)
+        # print('new_loss: ', new_loss)
+        # print()
+        # print()
         # Compute boundary loss
         loss_u = loss_sb_left + loss_tb
         if not no_right_boundary:
