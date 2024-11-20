@@ -1,6 +1,5 @@
-from abc import ABC, abstractmethod
-
 import numpy as np
+import pandas as pd
 import torch
 from matplotlib import pyplot as plt
 from torch import optim
@@ -11,10 +10,10 @@ from Common import NeuralNet, TrainingConfig, EarlyStopping
 
 torch.set_default_dtype(torch.float64)
 
-class F_PINN(ABC):
+class GasPDE:
     def __init__(self, n_int_, n_sb_, n_tb_, time_domain_=None, space_domain_=None, lambda_u=10,
                  n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42,
-                 rescale_to_0_1=False):
+                 rescale_to_0_1=True):
 
         if time_domain_ is None:
             time_domain_ = [0, 1]
@@ -48,6 +47,11 @@ class F_PINN(ABC):
 
         self.ms = lambda x: torch.mean(torch.square(x))
 
+        self.f = 0.2
+        self.M = 1.8076e-4
+        self.G = 10.03
+        self.F = 685.0
+
     # Function to linearly transform a tensor whose value is between 0 and 1
     # to a tensor whose values are between the domain extrema
     def convert(self, tens):
@@ -57,25 +61,26 @@ class F_PINN(ABC):
         else:
             return tens * (self.domain_extrema[:, 1] - self.domain_extrema[:, 0]) + self.domain_extrema[:, 0]
 
-    @abstractmethod
-    def initial_condition(self, x):
-        pass
+    @staticmethod
+    def D_alpha(x):
+        return 200 - 199.98 * x
+        # return 1 - 0.9999 * x
 
-    @abstractmethod
+    @staticmethod
+    def initial_condition(x):
+        return torch.zeros(x.shape[0], 1)
+
     def left_boundary_condition(self, t):
-        pass
+        # return 2* t **0.25
+        return 2* (self.Te*t) **0.25
 
-    @abstractmethod
-    def right_boundary_condition(self, t):
-        pass
-
-    @abstractmethod
-    def exact_solution(self, inputs):
-        pass
+    @staticmethod
+    def right_boundary_condition(t):
+        return torch.zeros(t.shape[0], 1)
 
     # add points
     def add_temporal_boundary_points(self):
-        t0 = self.domain_extrema[0, 0]
+        t0 = self.domain_extrema[0, 0] # noqa
         input_tb = self.convert(self.soboleng.draw(self.n_tb))
         input_tb = input_tb.to(torch.float64)
         input_tb[:, 0] = torch.full(input_tb[:, 0].shape, t0)
@@ -84,7 +89,7 @@ class F_PINN(ABC):
         return input_tb, output_tb
 
     def add_spatial_boundary_points_left(self):
-        x_left = self.domain_extrema[1, 0]
+        x_left = self.domain_extrema[1, 0] # noqa
 
         input_sb = self.convert(self.soboleng.draw(self.n_sb))
         input_sb = input_sb.to(torch.float64)
@@ -97,7 +102,7 @@ class F_PINN(ABC):
         return input_sb_left, output_sb_left
 
     def add_spatial_boundary_points_right(self):
-        x_right = self.domain_extrema[1, 1]
+        x_right = self.domain_extrema[1, 1] # noqa
 
         input_sb = self.convert(self.soboleng.draw(self.n_sb))
         input_sb = input_sb.to(torch.float64)
@@ -123,7 +128,7 @@ class F_PINN(ABC):
 
     # Function returning the training sets S_sb, S_tb, S_int as dataloader
     def assemble_datasets(self):
-        input_sb_left, output_sb_left = self.add_spatial_boundary_points_left()
+        input_sb_left, output_sb_left = self.add_spatial_boundary_points_left() # noqa
         input_sb_right, output_sb_right = self.add_spatial_boundary_points_right()
         input_tb, output_tb = self.add_temporal_boundary_points()  # S_tb
         input_int, output_int = self.add_interior_points()         # S_int
@@ -150,13 +155,43 @@ class F_PINN(ABC):
         u_pred_sb = self.approximate_solution(input_sb)
         return u_pred_sb
 
-    @abstractmethod
     def compute_pde_residual(self, input_int):
-        pass
+        input_int.requires_grad = True # noqa
+        u = self.approximate_solution(input_int)
+        grad_u = torch.autograd.grad(u.sum(), input_int, create_graph=True)[0]
+        grad_u_t = grad_u[:, 0]
+        grad_u_x = grad_u[:, 1]
+        grad_u_xx = torch.autograd.grad(grad_u_x.sum(), input_int, create_graph=True)[0][:, 1]
+        # grad_u_tt = torch.autograd.grad(grad_u_t.sum(), input_int, create_graph=True)[0][:, 0]
+
+        D_alpha = self.D_alpha(input_int[:, 1])
+        # D_alpha_x = torch.autograd.grad(D_alpha.sum(), input_int, create_graph=True)[0][:, 1]
+        D_alpha_x = -199.98
+        left_side = (grad_u_t * self.f)/self.Te + (grad_u_x*self.f*self.F)/self.zf + u*self.G
+        right_side = (D_alpha_x*(grad_u_x/self.zf - u*self.M) + D_alpha*(grad_u_xx/self.zf - grad_u_x*self.M))/self.zf
+        # left_side = (grad_u_t * self.f) + (grad_u_x*self.f*self.F) + u*self.G
+        # right_side = (D_alpha_x*(grad_u_x - u*self.M) + D_alpha*(grad_u_xx - grad_u_x*self.M))
+        residual = (left_side - right_side)/200
+        # Pe = self.f * self.F * self.zf / self.D
+        # Da = self.G * self.zf**2 / self.D
+        # Gr = self.M * self.zf
+        # left_side = grad_u_t + (Pe * grad_u_x) + Da * u
+        # right_side = (D_alpha_x * (grad_u_x - Gr * u) + D_alpha * (grad_u_xx - Gr * grad_u_x))
+        # residual = left_side - right_side
+        return residual.reshape(-1, )
+
+    def apply_right_boundary_derivative(self, inp_train_sb_right):
+        inp_train_sb_right.requires_grad = True # noqa
+        u = self.approximate_solution(inp_train_sb_right)
+        grad_u = torch.autograd.grad(u.sum(), inp_train_sb_right, create_graph=True)[0]
+        grad_u_x = grad_u[:, 1]
+        x_right = inp_train_sb_right[:, 1]
+        D_alpha = self.D_alpha(x_right)
+        return self.ms(D_alpha*(grad_u_x - self.M*u) - self.right_boundary_condition(inp_train_sb_right[:, 0]))
 
     # Function to compute the total loss (weighted sum of spatial boundary loss, temporal boundary loss and interior loss)
     def compute_loss(self, train_points, verbose=True, new_loss=None, no_right_boundary=False):
-        (inp_train_sb_left, u_train_sb_left, inp_train_sb_right, u_train_sb_right,
+        (inp_train_sb_left, u_train_sb_left, inp_train_sb_right, u_train_sb_right, # noqa
          inp_train_tb, u_train_tb, inp_train_int) = train_points
 
         # Compute boundary predictions
@@ -206,7 +241,7 @@ class F_PINN(ABC):
 
     ################################################################################################
     def fit(self, num_epochs, optimizer, verbose=True):
-        history = list()
+        history = list() # noqa
         training_set_sb_left, training_set_sb_right, training_set_tb, training_set_int = self.assemble_datasets()
         # Loop over epochs
         for epoch in range(num_epochs):
@@ -231,7 +266,7 @@ class F_PINN(ABC):
         return history
 
     def enhanced_fit(self, num_epochs, optimizer, config=None, verbose=True):
-        if config is None:
+        if config is None: # noqa
             config = TrainingConfig(num_epochs=num_epochs)
 
         history = {
@@ -346,22 +381,25 @@ class F_PINN(ABC):
 
         return history
 
-    def relative_L2_error(self, n_points=10000):
-        inputs = self.soboleng.draw(n_points)
-        inputs = self.convert(inputs)
-        inputs = inputs.to(torch.float64)
-
+    def relative_L2_error(self):
+        path = r'/Users/omar/Desktop/PINN/exact_data.xlsx' # noqa
+        data = pd.read_excel(path, header=None)
+        x = data[0].values
+        t = data[1].values
+        inputs = torch.tensor(np.stack((t, x), axis=1), dtype=torch.float64)
         output = self.approximate_solution(inputs).reshape(-1, )
-        exact_output = self.exact_solution(inputs).reshape(-1, )
+        # exact_output = self.exact_solution(inputs).reshape(-1, )
+        exact_output = data[2].values.reshape(-1, )
+        exact_output = torch.tensor(exact_output, dtype=output.dtype)
 
-        err = (torch.mean((output - exact_output) ** 2) / torch.mean(exact_output ** 2)) ** 0.5 * 100
-        print('L2 Relative Error Norm: ', err.item(), '%')
+        err = (torch.mean((output.detach() - exact_output) ** 2) / torch.mean(exact_output ** 2)) ** 0.5 * 100
+        print("L2 Relative Error Norm: ", err.item(), "%")
         return inputs, output, exact_output
 
-    def plotting(self, n_points=25000):
-        inputs, output, exact_output = self.relative_L2_error(n_points)
+    def plotting(self):
+        inputs, output, exact_output = self.relative_L2_error()
 
-        fig, axs = plt.subplots(1, 2, figsize=(16, 8), dpi=150)
+        fig, axs = plt.subplots(1, 2, figsize=(16, 8), dpi=150) # noqa
         im1 = axs[0].scatter(inputs[:, 1].detach(), inputs[:, 0].detach(), c=exact_output.detach(), cmap='jet')
         axs[0].set_xlabel('x')
         axs[0].set_ylabel('t')
@@ -379,8 +417,7 @@ class F_PINN(ABC):
         plt.close()
 
     def plot_training_points(self):
-        # Plot the input training points
-        # input_sb_, output_sb_ = self.add_spatial_boundary_points()
+        # Plot the input training points # noqa
         input_sb_left_, output_sb_left_ = self.add_spatial_boundary_points_left()
         input_sb_right_, output_sb_right_ = self.add_spatial_boundary_points_right()
         input_tb_, output_tb_ = self.add_temporal_boundary_points()

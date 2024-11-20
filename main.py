@@ -1,4 +1,5 @@
 from Common import TrainingConfig
+from GasPDE import GasPDE
 from equations.DiffusionEquation import DiffusionPDE
 from equations.HeatEquation import HeatPDE
 from equations.WaveEquation import WavePDE
@@ -27,6 +28,12 @@ def train_pde(pde_class, config, use_lbfgs=False, plot_points=False):
         config=config,
         verbose=True
     )
+    # history = pde.fit(
+    #     num_epochs=config.num_epochs,
+    #     optimizer=optimizer,
+    #     # config=config,
+    #     verbose=True
+    # )
 
     # Evaluate and plot results
     if plot_points:
@@ -56,7 +63,7 @@ if __name__ == "__main__":
     )
 
     # Diffusion equation
-    diffusion_pde, diffusion_history = train_pde(DiffusionPDE, adam_config, use_lbfgs=False, plot_points=False)
+    diffusion_pde, diffusion_history = train_pde(GasPDE, adam_config, use_lbfgs=False, plot_points=False)
     # diffusion_pde, diffusion_history = train_pde(DiffusionPDE, lbfgs_config, use_lbfgs=True, plot_points=False)
 
     # Train Wave equation with ADAM
