@@ -63,8 +63,8 @@ if __name__ == "__main__":
     )
 
     # Diffusion equation
-    # diffusion_pde, diffusion_history = train_pde(GasPDE, adam_config, use_lbfgs=False, plot_points=False)
-    diffusion_pde, diffusion_history = train_pde(GasPDE, lbfgs_config, use_lbfgs=True, plot_points=False)
+    diffusion_pde, diffusion_history = train_pde(GasPDE, adam_config, use_lbfgs=False, plot_points=False)
+    # diffusion_pde, diffusion_history = train_pde(GasPDE, lbfgs_config, use_lbfgs=True, plot_points=False)
 
     # Train Wave equation with ADAM
     # wave_pde, wave_history = train_pde(WavePDE, lbfgs_config, use_lbfgs=True)
