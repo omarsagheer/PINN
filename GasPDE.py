@@ -10,10 +10,14 @@ from Common import NeuralNet, TrainingConfig, EarlyStopping
 
 torch.set_default_dtype(torch.float64)
 
+
 class GasPDE:
     def __init__(self, n_int_, n_sb_, n_tb_, time_domain_=None, space_domain_=None, lambda_u=10,
                  n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42,
-                 rescale_to_0_1=True):
+                 rescale_to_0_1=True, device='cuda' if torch.cuda.is_available() else 'cpu'):
+
+        self.device = device
+        torch.set_default_dtype(torch.float64)
 
         if time_domain_ is None:
             time_domain_ = [0, 1]
@@ -28,22 +32,26 @@ class GasPDE:
             self.zf = 1
 
         self.rescale_to_0_1 = rescale_to_0_1
-
         self.n_int = n_int_
         self.n_sb = n_sb_
         self.n_tb = n_tb_
 
-        # Extrema of the solution domain (t,x)
-        self.domain_extrema = torch.tensor([time_domain_, space_domain_])
+        # Move domain extrema to GPU
+        self.domain_extrema = torch.tensor([time_domain_, space_domain_]).to(device)
 
-        # Parameter to balance the role of data and PDE
         self.lambda_u = lambda_u
-        # Generator of Sobol sequences
         self.soboleng = torch.quasirandom.SobolEngine(dimension=self.domain_extrema.shape[0])
-        # F Dense NN to approximate the solution of the underlying heat equation
-        self.approximate_solution = NeuralNet(input_dimension=self.domain_extrema.shape[0], output_dimension=1,
-                  n_hidden_layers=n_hidden_layers, neurons=neurons, regularization_param=regularization_param,
-                  regularization_exp=regularization_exp, retrain_seed=retrain_seed)
+
+        # Move neural network to GPU
+        self.approximate_solution = NeuralNet(
+            input_dimension=self.domain_extrema.shape[0],
+            output_dimension=1,
+            n_hidden_layers=n_hidden_layers,
+            neurons=neurons,
+            regularization_param=regularization_param,
+            regularization_exp=regularization_exp,
+            retrain_seed=retrain_seed
+        ).to(device)
 
         self.ms = lambda x: torch.mean(torch.square(x))
 
@@ -55,6 +63,7 @@ class GasPDE:
     # Function to linearly transform a tensor whose value is between 0 and 1
     # to a tensor whose values are between the domain extrema
     def convert(self, tens):
+        tens = tens.to(self.device)
         assert (tens.shape[1] == self.domain_extrema.shape[0])
         if self.rescale_to_0_1:
             return tens
@@ -66,53 +75,42 @@ class GasPDE:
         return 200 - 199.98 * x
         # return 1 - 0.9999 * x
 
-    @staticmethod
-    def initial_condition(x):
-        return torch.zeros(x.shape[0], 1)
+
+    def initial_condition(self, x):
+        return torch.zeros(x.shape[0], 1, device=self.device)
 
     def left_boundary_condition(self, t):
         # return 2* t **0.25
         return 2* (self.Te*t) **0.25
 
-    @staticmethod
-    def right_boundary_condition(t):
-        return torch.zeros(t.shape[0], 1)
 
-    # add points
+    def right_boundary_condition(self, t):
+        return torch.zeros(t.shape[0], 1, device=self.device)
+
     def add_temporal_boundary_points(self):
-        t0 = self.domain_extrema[0, 0] # noqa
+        t0 = self.domain_extrema[0, 0]
         input_tb = self.convert(self.soboleng.draw(self.n_tb))
-        input_tb = input_tb.to(torch.float64)
-        input_tb[:, 0] = torch.full(input_tb[:, 0].shape, t0)
+        input_tb[:, 0] = torch.full(input_tb[:, 0].shape, t0, device=self.device)
         output_tb = self.initial_condition(input_tb[:, 1]).reshape(-1, 1)
-
         return input_tb, output_tb
 
     def add_spatial_boundary_points_left(self):
-        x_left = self.domain_extrema[1, 0] # noqa
-
+        x_left = self.domain_extrema[1, 0]
         input_sb = self.convert(self.soboleng.draw(self.n_sb))
-        input_sb = input_sb.to(torch.float64)
-
         input_sb_left = torch.clone(input_sb)
-        input_sb_left[:, 1] = torch.full(input_sb_left[:, 1].shape, x_left)
-
+        input_sb_left[:, 1] = torch.full(input_sb_left[:, 1].shape, x_left, device=self.device)
         output_sb_left = self.left_boundary_condition(input_sb_left[:, 0]).reshape(-1, 1)
-
         return input_sb_left, output_sb_left
 
     def add_spatial_boundary_points_right(self):
-        x_right = self.domain_extrema[1, 1] # noqa
-
+        x_right = self.domain_extrema[1, 1]
         input_sb = self.convert(self.soboleng.draw(self.n_sb))
-        input_sb = input_sb.to(torch.float64)
-
         input_sb_right = torch.clone(input_sb)
 
         if self.rescale_to_0_1:
-            input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right/self.zf)
+            input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right / self.zf, device=self.device)
         else:
-            input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right)
+            input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right, device=self.device)
 
         output_sb_right = self.right_boundary_condition(input_sb_right[:, 0]).reshape(-1, 1)
         return input_sb_right, output_sb_right
@@ -121,8 +119,7 @@ class GasPDE:
     #  Function returning the input-output tensor required to assemble the training set S_int corresponding to the interior domain where the PDE is enforced
     def add_interior_points(self):
         input_int = self.convert(self.soboleng.draw(self.n_int))
-        input_int = input_int.to(torch.float64)
-        output_int = torch.zeros((input_int.shape[0], 1))
+        output_int = torch.zeros((input_int.shape[0], 1), device=self.device)
         return input_int, output_int
 
 
@@ -397,24 +394,31 @@ class GasPDE:
         return inputs, output, exact_output
 
     def plotting(self):
-        inputs, output, exact_output = self.relative_L2_error()
+        self.approximate_solution.eval()
+        with torch.no_grad():
+            inputs, output, exact_output = self.relative_L2_error()
 
-        fig, axs = plt.subplots(1, 2, figsize=(16, 8), dpi=150) # noqa
-        im1 = axs[0].scatter(inputs[:, 1].detach(), inputs[:, 0].detach(), c=exact_output.detach(), cmap='jet')
-        axs[0].set_xlabel('x')
-        axs[0].set_ylabel('t')
-        plt.colorbar(im1, ax=axs[0])
-        axs[0].grid(True, which='both', ls=':')
-        im2 = axs[1].scatter(inputs[:, 1].detach(), inputs[:, 0].detach(), c=output.detach(), cmap='jet')
-        axs[1].set_xlabel('x')
-        axs[1].set_ylabel('t')
-        plt.colorbar(im2, ax=axs[1])
-        axs[1].grid(True, which='both', ls=':')
-        axs[0].set_title('Exact Solution')
-        axs[1].set_title('Approximate Solution')
+            # Move data to CPU for plotting
+            inputs = inputs.cpu()
+            output = output.cpu()
+            exact_output = exact_output.cpu()
 
-        plt.show()
-        plt.close()
+            fig, axs = plt.subplots(1, 2, figsize=(16, 8), dpi=150)
+            im1 = axs[0].scatter(inputs[:, 1], inputs[:, 0], c=exact_output, cmap='jet')
+            axs[0].set_xlabel('x')
+            axs[0].set_ylabel('t')
+            plt.colorbar(im1, ax=axs[0])
+            axs[0].grid(True, which='both', ls=':')
+
+            im2 = axs[1].scatter(inputs[:, 1], inputs[:, 0], c=output, cmap='jet')
+            axs[1].set_xlabel('x')
+            axs[1].set_ylabel('t')
+            plt.colorbar(im2, ax=axs[1])
+            axs[1].grid(True, which='both', ls=':')
+
+            axs[0].set_title('Exact Solution')
+            axs[1].set_title('Approximate Solution')
+            plt.show()
 
     def plot_training_points(self):
         # Plot the input training points # noqa
