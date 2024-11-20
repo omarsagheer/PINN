@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-torch.manual_seed(42)
+# torch.manual_seed(42)
 
 torch.set_default_dtype(torch.float64)
 

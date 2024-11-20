@@ -190,7 +190,7 @@ class GasPDE:
         return self.ms(D_alpha*(grad_u_x - self.M*u) - self.right_boundary_condition(inp_train_sb_right[:, 0]))
 
     # Function to compute the total loss (weighted sum of spatial boundary loss, temporal boundary loss and interior loss)
-    def compute_loss(self, train_points, verbose=True, new_loss=None, no_right_boundary=False):
+    def compute_loss(self, train_points, verbose=True, no_right_boundary=True):
         (inp_train_sb_left, u_train_sb_left, inp_train_sb_right, u_train_sb_right, # noqa
          inp_train_tb, u_train_tb, inp_train_int) = train_points
 
@@ -223,11 +223,11 @@ class GasPDE:
         # print()
         # print()
         # Compute boundary loss
-        loss_u = loss_sb_left + loss_tb
-        if not no_right_boundary:
-            loss_u += loss_sb_right
-        if new_loss is not None:
-            loss_u += new_loss
+        loss_u = loss_sb_left + loss_tb + self.apply_right_boundary_derivative(inp_train_sb_right)
+        # if not no_right_boundary:
+        #     loss_u += loss_sb_right
+        # if new_loss is not None:
+        #     loss_u += new_loss
 
         # Total loss with log scaling
         loss = torch.log10(self.lambda_u * loss_u + loss_int)
@@ -486,15 +486,9 @@ class GasPDE:
         return optim.Adam(self.approximate_solution.parameters(), lr=float(lr))
 
 
-def save_model(self, path):
-    state = {
-        'model_state': self.approximate_solution.state_dict(),
-        'optimizer_state': self.optimizer.state_dict(),
-        'config': self.config
-    }
-    torch.save(state, path)
+    def save_model(self, path):
+        torch.save(self.approximate_solution.state_dict(), path)
 
-def load_model(self, path):
-    state = torch.load(path)
-    self.approximate_solution.load_state_dict(state['model_state'])
-    self.optimizer.load_state_dict(state['optimizer_state'])
+    def load_model(self, path):
+        state = torch.load(path)
+        self.approximate_solution.load_state_dict(state['model_state'])

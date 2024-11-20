@@ -449,15 +449,10 @@ class F_PINN(ABC):
         return optim.Adam(self.approximate_solution.parameters(), lr=float(lr))
 
 
-def save_model(self, path):
-    state = {
-        'model_state': self.approximate_solution.state_dict(),
-        'optimizer_state': self.optimizer.state_dict(),
-        'config': self.config
-    }
-    torch.save(state, path)
+    def save_model(self, path):
+        torch.save(self.approximate_solution.state_dict(), path)
 
-def load_model(self, path):
-    state = torch.load(path)
-    self.approximate_solution.load_state_dict(state['model_state'])
-    self.optimizer.load_state_dict(state['optimizer_state'])
+
+    def load_model(self, path):
+        state = torch.load(path)
+        self.approximate_solution.load_state_dict(state['model_state'])
