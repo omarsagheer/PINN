@@ -130,6 +130,15 @@ class GasPDE:
         input_tb, output_tb = self.add_temporal_boundary_points()  # S_tb
         input_int, output_int = self.add_interior_points()         # S_int
 
+        input_sb_left = input_sb_left.to(self.device)
+        output_sb_left = output_sb_left.to(self.device)
+        input_sb_right = input_sb_right.to(self.device)
+        output_sb_right = output_sb_right.to(self.device)
+        input_tb = input_tb.to(self.device)
+        output_tb = output_tb.to(self.device)
+        input_int = input_int.to(self.device)
+        output_int = output_int.to(self.device)
+
         training_set_sb_left = DataLoader(torch.utils.data.TensorDataset(input_sb_left, output_sb_left), batch_size=self.n_sb, shuffle=False)
         training_set_sb_right = DataLoader(torch.utils.data.TensorDataset(input_sb_right, output_sb_right), batch_size=self.n_sb, shuffle=False)
         training_set_tb = DataLoader(torch.utils.data.TensorDataset(input_tb, output_tb), batch_size=self.n_tb, shuffle=False)
@@ -166,11 +175,14 @@ class GasPDE:
         D_alpha = self.D_alpha(input_int[:, 1])
         # D_alpha_x = torch.autograd.grad(D_alpha.sum(), input_int, create_graph=True)[0][:, 1]
         D_alpha_x = -199.98
-        left_side = (grad_u_t * self.f)/self.Te + (grad_u_x*self.f*self.F)/self.zf + u*self.G
+        left_side = ((grad_u_t * self.f)/self.Te + (grad_u_x*self.f*self.F)/self.zf + u*self.G)
+        # print('left_side: ', torch.mean(left_side))
         right_side = (D_alpha_x*(grad_u_x/self.zf - u*self.M) + D_alpha*(grad_u_xx/self.zf - grad_u_x*self.M))/self.zf
+        # print('right_side: ', torch.mean(right_side))
         # left_side = (grad_u_t * self.f) + (grad_u_x*self.f*self.F) + u*self.G
         # right_side = (D_alpha_x*(grad_u_x - u*self.M) + D_alpha*(grad_u_xx - grad_u_x*self.M))
-        residual = (left_side - right_side)/200
+        residual = (left_side - right_side)/170
+        # print('residual: ', torch.mean(residual))
         # Pe = self.f * self.F * self.zf / self.D
         # Da = self.G * self.zf**2 / self.D
         # Gr = self.M * self.zf
@@ -186,7 +198,7 @@ class GasPDE:
         grad_u_x = grad_u[:, 1]
         x_right = inp_train_sb_right[:, 1]
         D_alpha = self.D_alpha(x_right)
-        return self.ms(D_alpha*(grad_u_x - self.M*u) - self.right_boundary_condition(inp_train_sb_right[:, 0]))
+        return D_alpha*(grad_u_x - self.M*u) - self.right_boundary_condition(inp_train_sb_right[:, 0])
 
     # Function to compute the total loss (weighted sum of spatial boundary loss, temporal boundary loss and interior loss)
     def compute_loss(self, train_points, verbose=True, no_right_boundary=True):
@@ -208,12 +220,13 @@ class GasPDE:
         r_sb_left = u_train_sb_left - u_pred_sb_left
         r_sb_right = u_train_sb_right - u_pred_sb_right
         r_tb = u_train_tb - u_pred_tb
-
+        r_der = self.apply_right_boundary_derivative(inp_train_sb_right)
         # Compute individual losses
         loss_sb_left = self.ms(r_sb_left)
         loss_sb_right = self.ms(r_sb_right)
         loss_tb = self.ms(r_tb)
         loss_int = self.ms(r_int)
+        loss_der = self.ms(r_der)
         # print('loss_sb_left: ', loss_sb_left)
         # # print('loss_sb_right: ', loss_sb_right)
         # print('loss_tb: ', loss_tb)
@@ -222,7 +235,7 @@ class GasPDE:
         # print()
         # print()
         # Compute boundary loss
-        loss_u = loss_sb_left + loss_tb + self.apply_right_boundary_derivative(inp_train_sb_right)
+        loss_u = loss_sb_left + loss_tb + loss_der
         # if not no_right_boundary:
         #     loss_u += loss_sb_right
         # if new_loss is not None:
