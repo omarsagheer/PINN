@@ -4,9 +4,9 @@ from ForwardPINN import ForwardPINN
 
 
 class TransportPDE(ForwardPINN):
-    def __init__(self, n_int_, n_sb_, n_tb_, time_domain_=None, space_domain_=None, lambda_u=10,
+    def __init__(self, n_int, n_sb, n_tb, time_domain=None, space_domain=None, lambda_u=10,
                  n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
-        super().__init__(n_int_, n_sb_, n_tb_, time_domain_, space_domain_, lambda_u, n_hidden_layers, neurons,
+        super().__init__(n_int, n_sb, n_tb, time_domain, space_domain, lambda_u, n_hidden_layers, neurons,
                          regularization_param, regularization_exp, retrain_seed)
         self.c = 1.0
 
@@ -17,7 +17,7 @@ class TransportPDE(ForwardPINN):
         return torch.square(t)
 
     def right_boundary_condition(self, t):
-        return 2 * (- t)
+        return 2 * (5- t)
 
     def exact_solution(self, inputs):
         t = inputs[:, 0]
@@ -44,8 +44,8 @@ class TransportPDE(ForwardPINN):
         grad_u_x = grad_u[:, 1]
         return self.ms(grad_u_x - self.right_boundary_condition(inp_train_sb_right[:, 0]))
 
-    def compute_loss(self, train_points, verbose=True, new_loss=None, right_boundary_loss=None):
+    def compute_loss(self, train_points, verbose=True, new_loss=None, no_right_boundary=None):
         inp_train_sb_right = train_points[2]
         right_boundary_loss = self.apply_right_boundary_derivative(inp_train_sb_right)
-        loss = super().compute_loss(train_points, verbose, right_boundary_loss, True)
+        loss = super().compute_loss(train_points, verbose, right_boundary_loss, no_right_boundary=True)
         return loss

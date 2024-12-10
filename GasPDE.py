@@ -12,32 +12,32 @@ torch.set_default_dtype(torch.float64)
 
 
 class GasPDE:
-    def __init__(self, n_int_, n_sb_, n_tb_, time_domain_=None, space_domain_=None, lambda_u=10,
+    def __init__(self, n_int, n_sb, n_tb, time_domain=None, space_domain=None, lambda_u=10,
                  n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42,
                  rescale_to_0_1=True, device = 'cuda' if torch.cuda.is_available() else 'cpu'):
 
         self.device = device
         # torch.set_default_dtype(torch.float64)
 
-        if time_domain_ is None:
-            time_domain_ = [0, 1]
-        if space_domain_ is None:
-            space_domain_ = [0, 1]
+        if time_domain is None:
+            time_domain = [0, 1]
+        if space_domain is None:
+            space_domain = [0, 1]
 
         if rescale_to_0_1:
-            self.Te = time_domain_[1]
-            self.zf = space_domain_[1]
+            self.Te = time_domain[1]
+            self.zf = space_domain[1]
         else:
             self.Te = 1
             self.zf = 1
 
         self.rescale_to_0_1 = rescale_to_0_1
-        self.n_int = n_int_
-        self.n_sb = n_sb_
-        self.n_tb = n_tb_
+        self.n_int = n_int
+        self.n_sb = n_sb
+        self.n_tb = n_tb
 
         # Move domain extrema to GPU
-        self.domain_extrema = torch.tensor([time_domain_, space_domain_], dtype=torch.float64).to(device)
+        self.domain_extrema = torch.tensor([time_domain, space_domain], dtype=torch.float64).to(device)
 
         self.lambda_u = lambda_u
         self.soboleng = torch.quasirandom.SobolEngine(dimension=self.domain_extrema.shape[0])

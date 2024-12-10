@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
-from torch import optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
@@ -12,30 +11,20 @@ from Common import NeuralNet, TrainingConfig, EarlyStopping
 torch.set_default_dtype(torch.float64)
 
 class ForwardPINN(ABC):
-    def __init__(self, n_int_, n_sb_, n_tb_, time_domain_=None, space_domain_=None, lambda_u=10,
-                 n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42,
-                 rescale_to_0_1=False):
+    def __init__(self, n_int, n_sb, n_tb, time_domain=None, space_domain=None, lambda_u=10,
+                 n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
 
-        if time_domain_ is None:
-            time_domain_ = [0, 1]
-        if space_domain_ is None:
-            space_domain_ = [0, 1]
+        if time_domain is None:
+            time_domain = [0, 1]
+        if space_domain is None:
+            space_domain = [0, 1]
 
-        if rescale_to_0_1:
-            self.Te = time_domain_[1]
-            self.zf = space_domain_[1]
-        else:
-            self.Te = 1
-            self.zf = 1
-
-        self.rescale_to_0_1 = rescale_to_0_1
-
-        self.n_int = n_int_
-        self.n_sb = n_sb_
-        self.n_tb = n_tb_
+        self.n_int = n_int
+        self.n_sb = n_sb
+        self.n_tb = n_tb
 
         # Extrema of the solution domain (t,x)
-        self.domain_extrema = torch.tensor([time_domain_, space_domain_])
+        self.domain_extrema = torch.tensor([time_domain, space_domain])
 
         # Parameter to balance the role of data and PDE
         self.lambda_u = lambda_u
@@ -52,10 +41,7 @@ class ForwardPINN(ABC):
     # to a tensor whose values are between the domain extrema
     def convert(self, tens):
         assert (tens.shape[1] == self.domain_extrema.shape[0])
-        if self.rescale_to_0_1:
-            return tens
-        else:
-            return tens * (self.domain_extrema[:, 1] - self.domain_extrema[:, 0]) + self.domain_extrema[:, 0]
+        return tens * (self.domain_extrema[:, 1] - self.domain_extrema[:, 0]) + self.domain_extrema[:, 0]
 
     @abstractmethod
     def initial_condition(self, x):
@@ -71,6 +57,10 @@ class ForwardPINN(ABC):
 
     @abstractmethod
     def exact_solution(self, inputs):
+        pass
+
+    @abstractmethod
+    def compute_pde_residual(self, input_int):
         pass
 
     # add points
@@ -104,10 +94,7 @@ class ForwardPINN(ABC):
 
         input_sb_right = torch.clone(input_sb)
 
-        if self.rescale_to_0_1:
-            input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right/self.zf)
-        else:
-            input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right)
+        input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right)
 
         output_sb_right = self.right_boundary_condition(input_sb_right[:, 0]).reshape(-1, 1)
         return input_sb_right, output_sb_right
@@ -150,10 +137,6 @@ class ForwardPINN(ABC):
         u_pred_sb = self.approximate_solution(input_sb)
         return u_pred_sb
 
-    @abstractmethod
-    def compute_pde_residual(self, input_int):
-        pass
-
     # Function to compute the total loss (weighted sum of spatial boundary loss, temporal boundary loss and interior loss)
     def compute_loss(self, train_points, verbose=True, new_loss=None, no_right_boundary=False):
         (inp_train_sb_left, u_train_sb_left, inp_train_sb_right, u_train_sb_right,
@@ -180,13 +163,7 @@ class ForwardPINN(ABC):
         loss_sb_right = self.ms(r_sb_right)
         loss_tb = self.ms(r_tb)
         loss_int = self.ms(r_int)
-        # print('loss_sb_left: ', loss_sb_left)
-        # # print('loss_sb_right: ', loss_sb_right)
-        # print('loss_tb: ', loss_tb)
-        # print('loss_int: ', loss_int)
-        # print('new_loss: ', new_loss)
-        # print()
-        # print()
+
         # Compute boundary loss
         loss_u = loss_sb_left + loss_tb
         if not no_right_boundary:
@@ -276,22 +253,11 @@ class ForwardPINN(ABC):
                 inp_train_tb, u_train_tb = data[2]
                 inp_train_int, _ = data[3]
 
-                # Enable gradients
-                inp_train_sb_left.requires_grad_(True)
-                inp_train_sb_right.requires_grad_(True)
-                inp_train_tb.requires_grad_(True)
-                inp_train_int.requires_grad_(True)
-
                 def closure():
                     if is_lbfgs:
                         optimizer.zero_grad()
 
-                    train_points = (
-                        inp_train_sb_left, u_train_sb_left,
-                        inp_train_sb_right, u_train_sb_right,
-                        inp_train_tb, u_train_tb,
-                        inp_train_int
-                    )
+                    train_points = (inp_train_sb_left, u_train_sb_left, inp_train_sb_right, u_train_sb_right, inp_train_tb, u_train_tb, inp_train_int)
 
                     loss, loss_u, loss_int = self.compute_loss(train_points, verbose=False)
                     loss.backward()
@@ -358,7 +324,7 @@ class ForwardPINN(ABC):
         print('L2 Relative Error Norm: ', err.item(), '%')
         return inputs, output, exact_output
 
-    def plotting(self, n_points=25000):
+    def plotting_solution(self, n_points=25000):
         inputs, output, exact_output = self.relative_L2_error(n_points)
 
         fig, axs = plt.subplots(1, 2, figsize=(16, 8), dpi=150)
@@ -446,7 +412,7 @@ class ForwardPINN(ABC):
         )
 
     def optimizer_ADAM(self, lr=1e-5):
-        return optim.Adam(self.approximate_solution.parameters(), lr=float(lr))
+        return torch.optim.Adam(self.approximate_solution.parameters(), lr=float(lr))
 
 
     def save_model(self, path):

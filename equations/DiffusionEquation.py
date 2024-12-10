@@ -6,7 +6,7 @@ from ForwardPINN import ForwardPINN
 
 
 class DiffusionPDE(ForwardPINN):
-    def __init__(self, n_int_, n_sb_, n_tb_, time_domain_=None, space_domain_=None, lambda_u=10,
+    def __init__(self, n_int, n_sb, n_tb, time_domain=None, space_domain=None, lambda_u=10,
                  n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
         # initial conditions
         self.f = 0.2
@@ -15,12 +15,12 @@ class DiffusionPDE(ForwardPINN):
         self.F = 685.0
         # self.L = self.zf
         # self.D = 200
-        # space_domain_ = [0, self.zf/self.L]
-        # time_domain_ = [0, self.Te*self.D/self.L**2]
-        super().__init__(n_int_, n_sb_, n_tb_, time_domain_, space_domain_, lambda_u, n_hidden_layers, neurons,
+        # space_domain = [0, self.zf/self.L]
+        # time_domain = [0, self.Te*self.D/self.L**2]
+        super().__init__(n_int, n_sb, n_tb, time_domain, space_domain, lambda_u, n_hidden_layers, neurons,
                          regularization_param, regularization_exp, retrain_seed, rescale_to_0_1=True)
-        self.zf = space_domain_[1]
-        self.Te = time_domain_[1]
+        self.zf = space_domain[1]
+        self.Te = time_domain[1]
 
 
     @staticmethod

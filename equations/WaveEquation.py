@@ -5,12 +5,12 @@ from ForwardPINN import ForwardPINN
 torch.set_default_dtype(torch.float64)
 
 class WavePDE(ForwardPINN):
-    def __init__(self, n_int_, n_sb_, n_tb_, time_domain_=None, space_domain_=None, lambda_u=10,
+    def __init__(self, n_int, n_sb, n_tb, time_domain=None, space_domain=None, lambda_u=10,
                  n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
         self.c = 10.0
-        time_domain_ = [0, 1/self.c]
-        space_domain_ = [0, self.c]
-        super().__init__(n_int_, n_sb_, n_tb_, time_domain_, space_domain_, lambda_u, n_hidden_layers, neurons,
+        time_domain = [0, 1/self.c]
+        space_domain = [0, self.c]
+        super().__init__(n_int, n_sb, n_tb, time_domain, space_domain, lambda_u, n_hidden_layers, neurons,
                          regularization_param, regularization_exp, retrain_seed)
 
 

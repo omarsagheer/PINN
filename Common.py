@@ -95,8 +95,6 @@ class EarlyStopping:
             model.load_state_dict(state_dict)
 
 from dataclasses import dataclass
-import torch
-
 
 @dataclass
 class TrainingConfig:
@@ -108,10 +106,12 @@ class TrainingConfig:
     scheduler_factor: float = 0.5
     scheduler_min_lr: float = 1e-6
     validation_fraction: float = 0.1
-    max_iter: int = 1000  # for LBFGS
-    max_eval: int = None  # for LBFGS
-    lr: float = 0.5  # for LBFGS
-    history_size: int = 50  # for LBFGS
-    line_search_fn: str = "strong_wolfe"  # for LBFGS
+
+    # LBFGS specific
+    max_iter: int = 1000
+    max_eval: int = None
+    lr: float = 0.5
+    history_size: int = 50
+    line_search_fn: str = 'strong_wolfe'
 
 

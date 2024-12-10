@@ -1,17 +1,20 @@
+import time
+
 from Common import TrainingConfig
 from GasPDE import GasPDE
 from equations.DiffusionEquation import DiffusionPDE
 from equations.HeatEquation import HeatPDE
+from equations.TransportEquation import TransportPDE
 from equations.WaveEquation import WavePDE
 
 
 def train_pde(pde_class, config, use_lbfgs=False, plot_points=False):
     # Initialize PDE
-    n_sb = 64*2*2
-    n_tb = 64*2*2
-    n_int = 256*2*2
-    pde = pde_class(n_int_=n_int, n_sb_=n_sb, n_tb_=n_tb, n_hidden_layers=10, neurons=128,
-                    time_domain_=[0, 150], space_domain_=[0, 200], regularization_param=1e-1, lambda_u=30)
+    n_sb = 64
+    n_tb = 64
+    n_int = 256
+    pde = pde_class(n_int=n_int, n_sb=n_sb, n_tb=n_tb, n_hidden_layers=10, neurons=128,
+                    time_domain=[0, 150], space_domain=[0, 200], regularization_param=1e-1, lambda_u=30)
     if plot_points:
         pde.plot_training_points()
 
@@ -40,7 +43,7 @@ def train_pde(pde_class, config, use_lbfgs=False, plot_points=False):
         pde.relative_L2_error()
         pde.plot_training_history(history)
 
-    pde.plotting()
+    pde.plotting_solution()
 
     return pde, history
 
@@ -59,9 +62,23 @@ if __name__ == "__main__":
     lbfgs_config = TrainingConfig(
         num_epochs=100,
         early_stopping_patience=20,
-        max_iter=10,
+        max_iter=50,
     )
+    start = time.time()
+    heat_pde = TransportPDE(n_int=256, n_sb=64, n_tb=64, space_domain=[0, 5], time_domain=[0, 20])
+    heat_pde.plot_training_points()
 
+    optimizer = heat_pde.optimizer_LBFGS(lbfgs_config)
+    history = heat_pde.enhanced_fit(
+        num_epochs=lbfgs_config.num_epochs,
+        optimizer=optimizer,
+        config=lbfgs_config,
+        verbose=True
+    )
+    # heat_pde.plot_training_history(history)
+    end = time.time()
+    print('Time taken: ', end - start)
+    heat_pde.plotting_solution(100000)
     # Diffusion equation
     # diffusion_pde, diffusion_history = train_pde(GasPDE, adam_config, use_lbfgs=False, plot_points=False)
     # diffusion_pde, diffusion_history = train_pde(GasPDE, lbfgs_config, use_lbfgs=True, plot_points=False)
@@ -80,29 +97,29 @@ if __name__ == "__main__":
     # diffusion_pde.save_model(path)
 
     # Initialize PDE
-    n_sb = 64*2*2
-    n_tb = 64*2*2
-    n_int = 256*2*2
-    pde = GasPDE(n_int_=n_int, n_sb_=n_sb, n_tb_=n_tb, n_hidden_layers=10, neurons=128,
-                    time_domain_=[0, 150], space_domain_=[0, 200], regularization_param=1e-1)
-
-    # optimize with Adam
-    optimizer = pde.optimizer_ADAM(lr=1e-3)
-    adam_history = pde.enhanced_fit(
-        num_epochs=adam_config.num_epochs,
-        optimizer=optimizer,
-        config=adam_config,
-        verbose=True
-    )
-
-    # optimize with LBFGS
-    optimizer = pde.optimizer_LBFGS(lbfgs_config)
-    lbfgs_history = pde.enhanced_fit(
-        num_epochs=lbfgs_config.num_epochs,
-        optimizer=optimizer,
-        config=lbfgs_config,
-        verbose=True
-    )
-
-    # plot results
-    pde.plotting()
+    # n_sb = 64*2*2
+    # n_tb = 64*2*2
+    # n_int = 256*2*2
+    # pde = GasPDE(n_int=n_int, n_sb=n_sb, n_tb=n_tb, n_hidden_layers=10, neurons=128,
+    #                 time_domain=[0, 150], space_domain=[0, 200], regularization_param=1e-1)
+    #
+    # # optimize with Adam
+    # optimizer = pde.optimizer_ADAM(lr=1e-3)
+    # adam_history = pde.enhanced_fit(
+    #     num_epochs=adam_config.num_epochs,
+    #     optimizer=optimizer,
+    #     config=adam_config,
+    #     verbose=True
+    # )
+    #
+    # # optimize with LBFGS
+    # optimizer = pde.optimizer_LBFGS(lbfgs_config)
+    # lbfgs_history = pde.enhanced_fit(
+    #     num_epochs=lbfgs_config.num_epochs,
+    #     optimizer=optimizer,
+    #     config=lbfgs_config,
+    #     verbose=True
+    # )
+    #
+    # # plot results
+    # pde.plotting()
