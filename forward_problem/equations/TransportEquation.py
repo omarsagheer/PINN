@@ -1,6 +1,6 @@
 import torch
 
-from ForwardPINN import ForwardPINN
+from forward_problem.ForwardPINN import ForwardPINN
 
 
 class TransportPDE(ForwardPINN):

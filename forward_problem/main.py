@@ -65,20 +65,20 @@ if __name__ == "__main__":
         max_iter=50,
     )
     start = time.time()
-    heat_pde = TransportPDE(n_int=256, n_sb=64, n_tb=64, space_domain=[0, 5], time_domain=[0, 20])
-    heat_pde.plot_training_points()
+    wave_pde = WavePDE(n_int=256, n_sb=64, n_tb=64)
+    wave_pde.plot_training_points()
 
-    optimizer = heat_pde.optimizer_LBFGS(lbfgs_config)
-    history = heat_pde.enhanced_fit(
+    optimizer = wave_pde.optimizer_LBFGS(lbfgs_config)
+    history = wave_pde.enhanced_fit(
         num_epochs=lbfgs_config.num_epochs,
         optimizer=optimizer,
         config=lbfgs_config,
         verbose=True
     )
-    # heat_pde.plot_training_history(history)
+    # wave_pde.plot_training_history(history)
     end = time.time()
     print('Time taken: ', end - start)
-    heat_pde.plotting_solution(100000)
+    wave_pde.plotting_solution(20)
     # Diffusion equation
     # diffusion_pde, diffusion_history = train_pde(GasPDE, adam_config, use_lbfgs=False, plot_points=False)
     # diffusion_pde, diffusion_history = train_pde(GasPDE, lbfgs_config, use_lbfgs=True, plot_points=False)

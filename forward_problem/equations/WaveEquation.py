@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from ForwardPINN import ForwardPINN
+from forward_problem.ForwardPINN import ForwardPINN
 torch.set_default_dtype(torch.float64)
 
 class WavePDE(ForwardPINN):

@@ -10,8 +10,7 @@ torch.manual_seed(42)
 
 class NeuralNet(nn.Module):
     def __init__(self, input_dimension, output_dimension, n_hidden_layers, neurons,
-                 regularization_param, regularization_exp, retrain_seed,
-                 device = 'cuda' if torch.cuda.is_available() else 'cpu'):
+                 regularization_param, regularization_exp, retrain_seed, device):
         super(NeuralNet, self).__init__()
 
         self.device = device
@@ -19,7 +18,7 @@ class NeuralNet(nn.Module):
         self.output_dimension = output_dimension
         self.neurons = neurons
         self.n_hidden_layers = n_hidden_layers
-        self.activation = nn.Tanh()
+        self.activation = nn.Sigmoid()
         self.regularization_param = regularization_param
         self.regularization_exp = regularization_exp
         self.retrain_seed = retrain_seed

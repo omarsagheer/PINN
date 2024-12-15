@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from ForwardPINN import ForwardPINN
+from forward_problem.ForwardPINN import ForwardPINN
 
 
 class DiffusionPDE(ForwardPINN):
