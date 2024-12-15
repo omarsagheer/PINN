@@ -14,30 +14,33 @@ class AddingFPINNPoints(BaseFPINN, ABC):
     def add_temporal_boundary_points(self):
         t0 = self.domain_extrema[0, 0]
         input_tb = self.convert(self.soboleng.draw(self.n_tb))
-        input_tb[:, 0] = torch.full(input_tb[:, 0].shape, t0, dtype=self.dtype, device=self.device)
+        input_tb = input_tb.to(self.dtype).to(self.device)
+        input_tb[:, 0] = torch.full(input_tb[:, 0].shape, t0)
         output_tb = self.initial_condition(input_tb[:, 1]).reshape(-1, 1)
-        output_tb = output_tb.to(self.dtype).to(self.device)
+        # output_tb = output_tb.to(self.dtype).to(self.device)
         return input_tb, output_tb
 
     def add_spatial_boundary_points_left(self):
         x_left = self.domain_extrema[1, 0]
         input_sb = self.convert(self.soboleng.draw(self.n_sb))
+        input_sb = input_sb.to(self.dtype).to(self.device)
         input_sb_left = torch.clone(input_sb)
-        input_sb_left[:, 1] = torch.full(input_sb_left[:, 1].shape, x_left, dtype=self.dtype, device=self.device)
+        input_sb_left[:, 1] = torch.full(input_sb_left[:, 1].shape, x_left)
 
         output_sb_left = self.left_boundary_condition(input_sb_left[:, 0]).reshape(-1, 1)
-        output_sb_left = output_sb_left.to(self.dtype).to(self.device)
+        # output_sb_left = output_sb_left.to(self.dtype).to(self.device)
         return input_sb_left, output_sb_left
 
     def add_spatial_boundary_points_right(self):
         x_right = self.domain_extrema[1, 1]
         input_sb = self.convert(self.soboleng.draw(self.n_sb))
+        # input_sb = input_sb.to(self.dtype).to(self.device)
         input_sb_right = torch.clone(input_sb)
 
-        input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right, dtype=self.dtype, device=self.device)
+        input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right)
 
         output_sb_right = self.right_boundary_condition(input_sb_right[:, 0]).reshape(-1, 1)
-        output_sb_right = output_sb_right.to(self.dtype).to(self.device)
+        # output_sb_right = output_sb_right.to(self.dtype).to(self.device)
         return input_sb_right, output_sb_right
 
 
@@ -45,7 +48,8 @@ class AddingFPINNPoints(BaseFPINN, ABC):
     def add_interior_points(self):
         input_int = self.convert(self.soboleng.draw(self.n_int))
         input_int = input_int.to(self.dtype).to(self.device)
-        output_int = torch.zeros((input_int.shape[0], 1), dtype=self.dtype, device=self.device)
+        output_int = torch.zeros((input_int.shape[0], 1))
+        # output_int = output_int.to(self.dtype).to(self.device)
         return input_int, output_int
 
 
@@ -66,15 +70,16 @@ class AddingFPINNPoints(BaseFPINN, ABC):
     # Function to compute the terms required in the definition of the TEMPORAL boundary residual
     def apply_initial_condition(self, input_tb):
         u_pred_tb = self.approximate_solution(input_tb)
-        u_pred_tb = u_pred_tb.to(self.dtype).to(self.device)
+        # u_pred_tb = u_pred_tb.to(self.dtype).to(self.device)
         return u_pred_tb
 
     # Function to compute the terms required in the definition of the SPATIAL boundary residual
     def apply_boundary_conditions_left(self, input_sb):
         u_pred_sb = self.approximate_solution(input_sb)
-        u_pred_sb = u_pred_sb.to(self.dtype).to(self.device)
+        # u_pred_sb = u_pred_sb.to(self.dtype).to(self.device)
         return u_pred_sb
 
     def apply_boundary_conditions_right(self, input_sb):
         u_pred_sb = self.approximate_solution(input_sb)
+        # u_pred_sb = u_pred_sb.to(self.dtype).to(self.device)
         return u_pred_sb

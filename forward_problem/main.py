@@ -57,12 +57,12 @@ adam_config = TrainingConfig(
 
 # Configuration for LBFGS
 lbfgs_config = TrainingConfig(
-    num_epochs=120,
+    num_epochs=100,
     early_stopping_patience=20,
-    max_iter=200,
+    max_iter=50,
 )
 start = time.time()
-pde = TransportFPINN(n_int=256, n_sb=64, n_tb=64)
+pde = TransportFPINN(n_int=256, n_sb=64, n_tb=64, time_domain=[0, 20], space_domain=[0, 5])
 # pde.plot_training_points()
 
 optimizer = pde.optimizer_LBFGS(lbfgs_config)
@@ -74,4 +74,4 @@ history = pde.enhanced_fit(
 )
 end = time.time()
 print('Time taken: ', end - start)
-pde.plotting_solution()
+pde.plotting_solution(100000)
