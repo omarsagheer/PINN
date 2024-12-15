@@ -5,11 +5,10 @@ import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from forward_problem.Common import EarlyStopping, TrainingConfig
-from forward_problem.forward_pinn_structure.adding_pde_points import AddingPDEPoints
-from forward_problem.forward_pinn_structure.main_pde import MainPDE
+from forward_problem.forward_pinn_structure.adding_f_pinn_points import AddingFPINNPoints
 
 
-class PDELoss(MainPDE, AddingPDEPoints, ABC):
+class FPINNLoss(AddingFPINNPoints, ABC):
     pass
 
     # Function to compute the total loss (weighted sum of spatial boundary loss, temporal boundary loss and interior loss)

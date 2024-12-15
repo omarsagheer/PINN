@@ -4,7 +4,7 @@ import torch
 from forward_problem.Common import NeuralNet
 
 
-class MainPDE(ABC):
+class BaseFPINN(ABC):
     def __init__(self, n_int, n_sb, n_tb, time_domain=None, space_domain=None, lambda_u=10,
                  n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42,
                  device='cuda' if torch.cuda.is_available() else 'cpu'):
@@ -21,7 +21,7 @@ class MainPDE(ABC):
         self.n_tb = n_tb
 
         # Extrema of the solution domain (t,x)
-        self.domain_extrema = torch.tensor([time_domain, space_domain])
+        self.domain_extrema = torch.tensor([time_domain, space_domain], dtype=self.dtype, device=self.device)
 
         # Parameter to balance the role of data and PDE
         self.lambda_u = lambda_u

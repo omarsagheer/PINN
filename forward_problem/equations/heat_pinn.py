@@ -1,10 +1,11 @@
 import numpy as np
 import torch
 
+
 from forward_problem.ForwardPINN import ForwardPINN
 
 
-class HeatPDE(ForwardPINN):
+class HeatFPINN(ForwardPINN):
     def __init__(self, n_int, n_sb, n_tb, time_domain=None, space_domain=None, lambda_u=10,
                  n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
         super().__init__(n_int, n_sb, n_tb, time_domain, space_domain, lambda_u, n_hidden_layers, neurons,
@@ -29,7 +30,6 @@ class HeatPDE(ForwardPINN):
     def compute_pde_residual(self, input_int):
         input_int.requires_grad = True
         u = self.approximate_solution(input_int)
-
         grad_u = torch.autograd.grad(u.sum(), input_int, create_graph=True)[0]
         grad_u_t = grad_u[:, 0]
         grad_u_x = grad_u[:, 1]

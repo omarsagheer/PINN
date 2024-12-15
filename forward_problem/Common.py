@@ -6,7 +6,6 @@ import torch.nn as nn
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 torch.manual_seed(42)
 
-# torch.set_default_dtype(torch.float64)
 
 class NeuralNet(nn.Module):
     def __init__(self, input_dimension, output_dimension, n_hidden_layers, neurons,
@@ -14,27 +13,28 @@ class NeuralNet(nn.Module):
         super(NeuralNet, self).__init__()
 
         self.device = device
+        self.dtype = torch.float64
         self.input_dimension = input_dimension
         self.output_dimension = output_dimension
         self.neurons = neurons
         self.n_hidden_layers = n_hidden_layers
-        self.activation = nn.Sigmoid()
+        self.activation = nn.Tanh()
         self.regularization_param = regularization_param
         self.regularization_exp = regularization_exp
         self.retrain_seed = retrain_seed
 
         # Move layers to specified device
-        self.input_layer = nn.Linear(self.input_dimension, self.neurons).to(torch.float64).to(device)
+        self.input_layer = nn.Linear(self.input_dimension, self.neurons).to(self.dtype).to(device)
         self.hidden_layers = nn.ModuleList([
-            nn.Linear(self.neurons, self.neurons).to(torch.float64).to(device)
+            nn.Linear(self.neurons, self.neurons).to(self.dtype).to(device)
             for _ in range(n_hidden_layers - 1)
         ])
-        self.output_layer = nn.Linear(self.neurons, self.output_dimension).to(torch.float64).to(device)
+        self.output_layer = nn.Linear(self.neurons, self.output_dimension).to(self.dtype).to(device)
 
         self.init_xavier()
 
     def forward(self, x):
-        x = x.to(torch.float64).to(self.device)
+        x = x.to(self.dtype).to(self.device)
         x = self.activation(self.input_layer(x))
         for layer in self.hidden_layers:
             x = self.activation(layer(x))
@@ -49,8 +49,8 @@ class NeuralNet(nn.Module):
                 torch.nn.init.xavier_uniform_(m.weight, gain=g)
                 m.bias.data.fill_(0)
                 # Move initialized weights to device
-                m.weight.data = m.weight.data.to(torch.float64).to(self.device)
-                m.bias.data = m.bias.data.to(torch.float64).to(self.device)
+                m.weight.data = m.weight.data.to(self.dtype).to(self.device)
+                m.bias.data = m.bias.data.to(self.dtype).to(self.device)
 
         self.apply(init_weights)
 

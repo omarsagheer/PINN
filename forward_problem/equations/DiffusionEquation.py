@@ -2,10 +2,10 @@ import numpy as np
 import pandas as pd
 import torch
 
-from forward_problem.ForwardPINN import ForwardPINN
+from forward_problem.ForwardPINN import ForwardFPINN
 
 
-class DiffusionPDE(ForwardPINN):
+class DiffusionPDE(ForwardFPINN):
     def __init__(self, n_int, n_sb, n_tb, time_domain=None, space_domain=None, lambda_u=10,
                  n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
         # initial conditions

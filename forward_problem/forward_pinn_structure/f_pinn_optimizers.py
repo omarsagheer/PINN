@@ -2,10 +2,10 @@ from abc import ABC
 
 import torch
 
-from forward_problem.forward_pinn_structure.main_pde import MainPDE
+from forward_problem.forward_pinn_structure.base_f_pinn import BaseFPINN
 
 
-class PDEOptimizers(MainPDE, ABC):
+class FPINNOptimizers(BaseFPINN, ABC):
     pass
 
     def optimizer_LBFGS(self, config):

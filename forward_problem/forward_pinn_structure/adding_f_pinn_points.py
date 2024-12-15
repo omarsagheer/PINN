@@ -2,10 +2,10 @@ from abc import ABC
 import torch
 from torch.utils.data import DataLoader
 
-from forward_problem.forward_pinn_structure.main_pde import MainPDE
+from forward_problem.forward_pinn_structure.base_f_pinn import BaseFPINN
 
 
-class AddingPDEPoints(MainPDE, ABC):
+class AddingFPINNPoints(BaseFPINN, ABC):
     pass
 
 
@@ -16,7 +16,7 @@ class AddingPDEPoints(MainPDE, ABC):
         input_tb = self.convert(self.soboleng.draw(self.n_tb))
         input_tb[:, 0] = torch.full(input_tb[:, 0].shape, t0, dtype=self.dtype, device=self.device)
         output_tb = self.initial_condition(input_tb[:, 1]).reshape(-1, 1)
-
+        output_tb = output_tb.to(self.dtype).to(self.device)
         return input_tb, output_tb
 
     def add_spatial_boundary_points_left(self):
@@ -26,7 +26,7 @@ class AddingPDEPoints(MainPDE, ABC):
         input_sb_left[:, 1] = torch.full(input_sb_left[:, 1].shape, x_left, dtype=self.dtype, device=self.device)
 
         output_sb_left = self.left_boundary_condition(input_sb_left[:, 0]).reshape(-1, 1)
-
+        output_sb_left = output_sb_left.to(self.dtype).to(self.device)
         return input_sb_left, output_sb_left
 
     def add_spatial_boundary_points_right(self):
@@ -37,6 +37,7 @@ class AddingPDEPoints(MainPDE, ABC):
         input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right, dtype=self.dtype, device=self.device)
 
         output_sb_right = self.right_boundary_condition(input_sb_right[:, 0]).reshape(-1, 1)
+        output_sb_right = output_sb_right.to(self.dtype).to(self.device)
         return input_sb_right, output_sb_right
 
 

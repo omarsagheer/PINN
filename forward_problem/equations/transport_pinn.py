@@ -3,7 +3,7 @@ import torch
 from forward_problem.ForwardPINN import ForwardPINN
 
 
-class TransportPDE(ForwardPINN):
+class TransportFPINN(ForwardPINN):
     def __init__(self, n_int, n_sb, n_tb, time_domain=None, space_domain=None, lambda_u=10,
                  n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
         super().__init__(n_int, n_sb, n_tb, time_domain, space_domain, lambda_u, n_hidden_layers, neurons,
@@ -32,8 +32,6 @@ class TransportPDE(ForwardPINN):
         grad_u = torch.autograd.grad(u.sum(), input_int, create_graph=True)[0]
         grad_u_t = grad_u[:, 0]
         grad_u_x = grad_u[:, 1]
-
-
         residual = grad_u_t + self.c * grad_u_x
         return residual.reshape(-1, )
 
