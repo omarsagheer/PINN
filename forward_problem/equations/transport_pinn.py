@@ -17,7 +17,7 @@ class TransportFPINN(ForwardPINN):
         return torch.square(t)
 
     def right_boundary_condition(self, t):
-        return 2 * (5- t)
+        return 2 * (- t)
 
     def exact_solution(self, inputs):
         t = inputs[:, 0]

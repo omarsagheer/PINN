@@ -29,7 +29,7 @@ class GasPDE:
         self.n_tb = n_tb
 
         # Move domain extrema to GPU
-        self.domain_extrema = torch.tensor([time_domain, space_domain], dtype=torch.float64).to(device)
+        self.domain_extrema = torch.tensor([time_domain, space_domain], dtype=torch.float64)
 
         self.lambda_u = lambda_u
         self.soboleng = torch.quasirandom.SobolEngine(dimension=self.domain_extrema.shape[0])
@@ -43,7 +43,7 @@ class GasPDE:
             regularization_param=regularization_param,
             regularization_exp=regularization_exp,
             retrain_seed=retrain_seed
-        ).to(device)
+        )
 
         self.ms = lambda x: torch.mean(torch.square(x))
 
@@ -55,7 +55,7 @@ class GasPDE:
     # Function to linearly transform a tensor whose value is between 0 and 1
     # to a tensor whose values are between the domain extrema
     def convert(self, tens):
-        tens = tens.to(torch.float64).to(self.device)
+        tens = tens.to(torch.float64)
         assert (tens.shape[1] == self.domain_extrema.shape[0])
         return tens * (self.domain_extrema[:, 1] - self.domain_extrema[:, 0]) + self.domain_extrema[:, 0]
 
@@ -66,7 +66,7 @@ class GasPDE:
 
 
     def initial_condition(self, x):
-        return torch.zeros(x.shape[0], 1, dtype=torch.float64, device=self.device)
+        return torch.zeros(x.shape[0], 1, dtype=torch.float64)
 
     def left_boundary_condition(self, t):
         # return 2* t **0.25
@@ -74,12 +74,12 @@ class GasPDE:
 
 
     def right_boundary_condition(self, t):
-        return torch.zeros(t.shape[0], 1, dtype=torch.float64, device=self.device)
+        return torch.zeros(t.shape[0], 1, dtype=torch.float64)
 
     def add_temporal_boundary_points(self):
         t0 = self.domain_extrema[0, 0]
         input_tb = self.convert(self.soboleng.draw(self.n_tb))
-        input_tb[:, 0] = torch.full(input_tb[:, 0].shape, t0, dtype=torch.float64, device=self.device)
+        input_tb[:, 0] = torch.full(input_tb[:, 0].shape, t0, dtype=torch.float64)
         output_tb = self.initial_condition(input_tb[:, 1]).reshape(-1, 1)
         return input_tb, output_tb
 
@@ -87,7 +87,7 @@ class GasPDE:
         x_left = self.domain_extrema[1, 0]
         input_sb = self.convert(self.soboleng.draw(self.n_sb))
         input_sb_left = torch.clone(input_sb)
-        input_sb_left[:, 1] = torch.full(input_sb_left[:, 1].shape, x_left, dtype=torch.float64, device=self.device)
+        input_sb_left[:, 1] = torch.full(input_sb_left[:, 1].shape, x_left, dtype=torch.float64)
         output_sb_left = self.left_boundary_condition(input_sb_left[:, 0]).reshape(-1, 1)
         return input_sb_left, output_sb_left
 
@@ -96,7 +96,7 @@ class GasPDE:
         input_sb = self.convert(self.soboleng.draw(self.n_sb))
         input_sb_right = torch.clone(input_sb)
 
-        input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right, dtype=torch.float64, device=self.device)
+        input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right, dtype=torch.float64)
 
         output_sb_right = self.right_boundary_condition(input_sb_right[:, 0]).reshape(-1, 1)
         return input_sb_right, output_sb_right
@@ -105,7 +105,7 @@ class GasPDE:
     #  Function returning the input-output tensor required to assemble the training set S_int corresponding to the interior domain where the PDE is enforced
     def add_interior_points(self):
         input_int = self.convert(self.soboleng.draw(self.n_int))
-        output_int = torch.zeros((input_int.shape[0], 1), dtype=torch.float64, device=self.device)
+        output_int = torch.zeros((input_int.shape[0], 1), dtype=torch.float64)
         return input_int, output_int
 
 
@@ -116,14 +116,14 @@ class GasPDE:
         input_tb, output_tb = self.add_temporal_boundary_points()  # S_tb
         input_int, output_int = self.add_interior_points()         # S_int
 
-        input_sb_left = input_sb_left.to(self.device)
-        output_sb_left = output_sb_left.to(self.device)
-        input_sb_right = input_sb_right.to(self.device)
-        output_sb_right = output_sb_right.to(self.device)
-        input_tb = input_tb.to(self.device)
-        output_tb = output_tb.to(self.device)
-        input_int = input_int.to(self.device)
-        output_int = output_int.to(self.device)
+        input_sb_left = input_sb_left
+        output_sb_left = output_sb_left
+        input_sb_right = input_sb_right
+        output_sb_right = output_sb_right
+        input_tb = input_tb
+        output_tb = output_tb
+        input_int = input_int
+        output_int = output_int
 
         training_set_sb_left = DataLoader(torch.utils.data.TensorDataset(input_sb_left, output_sb_left), batch_size=self.n_sb, shuffle=False)
         training_set_sb_right = DataLoader(torch.utils.data.TensorDataset(input_sb_right, output_sb_right), batch_size=self.n_sb, shuffle=False)
@@ -157,7 +157,7 @@ class GasPDE:
         # grad_u_x = grad_u_x.cpu()
         grad_u_xx = torch.autograd.grad(grad_u_x.sum(), input_int, create_graph=True)[0][:, 1]
         # grad_u_tt = torch.autograd.grad(grad_u_t.sum(), input_int, create_graph=True)[0][:, 0]
-        grad_u_xx = grad_u_xx.to(self.device)
+        grad_u_xx = grad_u_xx
         D_alpha = self.D_alpha(input_int[:, 1])
         # D_alpha_x = torch.autograd.grad(D_alpha.sum(), input_int, create_graph=True)[0][:, 1]
         D_alpha_x = -199.98

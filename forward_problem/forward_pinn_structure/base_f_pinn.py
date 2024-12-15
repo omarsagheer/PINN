@@ -6,10 +6,7 @@ from forward_problem.Common import NeuralNet
 
 class BaseFPINN(ABC):
     def __init__(self, n_int, n_sb, n_tb, time_domain=None, space_domain=None, lambda_u=10,
-                 n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42,
-                 device='cuda' if torch.cuda.is_available() else 'cpu'):
-
-        self.device = device
+                 n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
         self.dtype = torch.float64
         if time_domain is None:
             time_domain = [0, 1]
@@ -30,7 +27,7 @@ class BaseFPINN(ABC):
         # F Dense NN to approximate the solution of the underlying heat equation
         self.approximate_solution = NeuralNet(input_dimension=self.domain_extrema.shape[0], output_dimension=1,
                   n_hidden_layers=n_hidden_layers, neurons=neurons, regularization_param=regularization_param,
-                  regularization_exp=regularization_exp, retrain_seed=retrain_seed, device=device).to(device)
+                  regularization_exp=regularization_exp, retrain_seed=retrain_seed)
 
         self.ms = lambda x: torch.mean(torch.square(x))
 
