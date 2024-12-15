@@ -32,7 +32,6 @@ class TransportFPINN(ForwardPINN):
         grad_u = torch.autograd.grad(u.sum(), input_int, create_graph=True)[0]
         grad_u_t = grad_u[:, 0]
         grad_u_x = grad_u[:, 1]
-
         residual = grad_u_t + self.c * grad_u_x
         return residual.reshape(-1, )
 
