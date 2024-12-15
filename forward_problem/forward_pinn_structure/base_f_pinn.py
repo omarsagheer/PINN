@@ -21,7 +21,7 @@ class BaseFPINN(ABC):
         self.n_tb = n_tb
 
         # Extrema of the solution domain (t,x)
-        self.domain_extrema = torch.tensor([time_domain, space_domain], dtype=self.dtype, device=self.device)
+        self.domain_extrema = torch.tensor([time_domain, space_domain])
 
         # Parameter to balance the role of data and PDE
         self.lambda_u = lambda_u
@@ -37,7 +37,6 @@ class BaseFPINN(ABC):
     # Function to linearly transform a tensor whose value is between 0 and 1
     # to a tensor whose values are between the domain extrema
     def convert(self, tens):
-        tens = tens.to(self.dtype).to(self.device)
         assert (tens.shape[1] == self.domain_extrema.shape[0])
         return tens * (self.domain_extrema[:, 1] - self.domain_extrema[:, 0]) + self.domain_extrema[:, 0]
 
