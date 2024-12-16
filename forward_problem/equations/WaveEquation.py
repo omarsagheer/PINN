@@ -1,12 +1,10 @@
 import numpy as np
 import torch
 
-from forward_problem.ForwardPINN import ForwardFPINN
-torch.set_default_dtype(torch.float64)
+from forward_problem.ForwardPINN import ForwardPINN
 
-class WavePDE(ForwardFPINN):
-    def __init__(self, n_int, n_sb, n_tb, time_domain=None, space_domain=None, lambda_u=10,
-                 n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
+class WaveFPINN(ForwardPINN):
+    def __init__(self, n_int, n_sb, n_tb, lambda_u=10, n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
         self.c = 10.0
         time_domain = [0, 1/self.c]
         space_domain = [0, self.c]
@@ -40,7 +38,9 @@ class WavePDE(ForwardFPINN):
 
     def compute_pde_residual(self, input_int):
         # utt - c^2 * uxx = 0
-        grad_u = super().compute_pde_residual(input_int)
+        input_int.requires_grad = True
+        u = self.approximate_solution(input_int)
+        grad_u = torch.autograd.grad(u.sum(), input_int, create_graph=True)[0]
         grad_u_t = grad_u[:, 0]
         grad_u_x = grad_u[:, 1]
         grad_u_xx = torch.autograd.grad(grad_u_x.sum(), input_int, create_graph=True)[0][:, 1]

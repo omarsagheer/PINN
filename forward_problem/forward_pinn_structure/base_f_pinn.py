@@ -10,7 +10,7 @@ class BaseFPINN(ABC):
                  device='cuda' if torch.cuda.is_available() else 'cpu'):
 
         self.device = device
-        self.dtype = torch.float64
+        self.dtype = torch.float32
         if time_domain is None:
             time_domain = [0, 1]
         if space_domain is None:

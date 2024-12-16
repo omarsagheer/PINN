@@ -2,10 +2,10 @@ import numpy as np
 import pandas as pd
 import torch
 
-from forward_problem.ForwardPINN import ForwardFPINN
+from forward_problem.ForwardPINN import ForwardPINN
 
 
-class DiffusionPDE(ForwardFPINN):
+class DiffusionPDE(ForwardPINN):
     def __init__(self, n_int, n_sb, n_tb, time_domain=None, space_domain=None, lambda_u=10,
                  n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
         # initial conditions
@@ -18,7 +18,7 @@ class DiffusionPDE(ForwardFPINN):
         # space_domain = [0, self.zf/self.L]
         # time_domain = [0, self.Te*self.D/self.L**2]
         super().__init__(n_int, n_sb, n_tb, time_domain, space_domain, lambda_u, n_hidden_layers, neurons,
-                         regularization_param, regularization_exp, retrain_seed, rescale_to_0_1=True)
+                         regularization_param, regularization_exp, retrain_seed)
         self.zf = space_domain[1]
         self.Te = time_domain[1]
 
@@ -88,7 +88,7 @@ class DiffusionPDE(ForwardFPINN):
         data = pd.read_excel(path, header=None)
         x = data[0].values
         t = data[1].values
-        inputs = torch.tensor(np.stack((t, x), axis=1), dtype=torch.float64)
+        inputs = torch.tensor(np.stack((t, x), axis=1), dtype=self.dtype)
         output = self.approximate_solution(inputs).reshape(-1, )
         # exact_output = self.exact_solution(inputs).reshape(-1, )
         exact_output = data[2].values.reshape(-1, )

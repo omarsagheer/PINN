@@ -8,8 +8,6 @@ from torch.utils.data import DataLoader
 
 from Common import NeuralNet, TrainingConfig, EarlyStopping
 
-torch.set_default_dtype(torch.float64)
-
 
 class GasPDE:
     def __init__(self, n_int, n_sb, n_tb, time_domain=None, space_domain=None, lambda_u=10,
@@ -17,7 +15,7 @@ class GasPDE:
                  device = 'cuda' if torch.cuda.is_available() else 'cpu'):
 
         self.device = device
-        # torch.set_default_dtype(torch.float64)
+        self.dtype = torch.float64
 
         if time_domain is None:
             time_domain = [0, 1]
@@ -29,7 +27,7 @@ class GasPDE:
         self.n_tb = n_tb
 
         # Move domain extrema to GPU
-        self.domain_extrema = torch.tensor([time_domain, space_domain], dtype=torch.float64).to(device)
+        self.domain_extrema = torch.tensor([time_domain, space_domain], dtype=self.dtype).to(device)
 
         self.lambda_u = lambda_u
         self.soboleng = torch.quasirandom.SobolEngine(dimension=self.domain_extrema.shape[0])
@@ -55,7 +53,7 @@ class GasPDE:
     # Function to linearly transform a tensor whose value is between 0 and 1
     # to a tensor whose values are between the domain extrema
     def convert(self, tens):
-        tens = tens.to(torch.float64).to(self.device)
+        tens = tens.to(self.dtype).to(self.device)
         assert (tens.shape[1] == self.domain_extrema.shape[0])
         return tens * (self.domain_extrema[:, 1] - self.domain_extrema[:, 0]) + self.domain_extrema[:, 0]
 
@@ -66,7 +64,7 @@ class GasPDE:
 
 
     def initial_condition(self, x):
-        return torch.zeros(x.shape[0], 1, dtype=torch.float64, device=self.device)
+        return torch.zeros(x.shape[0], 1, dtype=self.dtype, device=self.device)
 
     def left_boundary_condition(self, t):
         # return 2* t **0.25
@@ -74,12 +72,12 @@ class GasPDE:
 
 
     def right_boundary_condition(self, t):
-        return torch.zeros(t.shape[0], 1, dtype=torch.float64, device=self.device)
+        return torch.zeros(t.shape[0], 1, dtype=self.dtype, device=self.device)
 
     def add_temporal_boundary_points(self):
         t0 = self.domain_extrema[0, 0]
         input_tb = self.convert(self.soboleng.draw(self.n_tb))
-        input_tb[:, 0] = torch.full(input_tb[:, 0].shape, t0, dtype=torch.float64, device=self.device)
+        input_tb[:, 0] = torch.full(input_tb[:, 0].shape, t0, dtype=self.dtype, device=self.device)
         output_tb = self.initial_condition(input_tb[:, 1]).reshape(-1, 1)
         return input_tb, output_tb
 
@@ -87,7 +85,7 @@ class GasPDE:
         x_left = self.domain_extrema[1, 0]
         input_sb = self.convert(self.soboleng.draw(self.n_sb))
         input_sb_left = torch.clone(input_sb)
-        input_sb_left[:, 1] = torch.full(input_sb_left[:, 1].shape, x_left, dtype=torch.float64, device=self.device)
+        input_sb_left[:, 1] = torch.full(input_sb_left[:, 1].shape, x_left, dtype=self.dtype, device=self.device)
         output_sb_left = self.left_boundary_condition(input_sb_left[:, 0]).reshape(-1, 1)
         return input_sb_left, output_sb_left
 
@@ -96,7 +94,7 @@ class GasPDE:
         input_sb = self.convert(self.soboleng.draw(self.n_sb))
         input_sb_right = torch.clone(input_sb)
 
-        input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right, dtype=torch.float64, device=self.device)
+        input_sb_right[:, 1] = torch.full(input_sb_right[:, 1].shape, x_right, dtype=self.dtype, device=self.device)
 
         output_sb_right = self.right_boundary_condition(input_sb_right[:, 0]).reshape(-1, 1)
         return input_sb_right, output_sb_right
@@ -105,7 +103,7 @@ class GasPDE:
     #  Function returning the input-output tensor required to assemble the training set S_int corresponding to the interior domain where the PDE is enforced
     def add_interior_points(self):
         input_int = self.convert(self.soboleng.draw(self.n_int))
-        output_int = torch.zeros((input_int.shape[0], 1), dtype=torch.float64, device=self.device)
+        output_int = torch.zeros((input_int.shape[0], 1), dtype=self.dtype, device=self.device)
         return input_int, output_int
 
 

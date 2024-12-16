@@ -4,8 +4,6 @@ import torch
 import torch.nn as nn
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-torch.manual_seed(42)
-
 
 class NeuralNet(nn.Module):
     def __init__(self, input_dimension, output_dimension, n_hidden_layers, neurons,
@@ -23,7 +21,7 @@ class NeuralNet(nn.Module):
         self.regularization_exp = regularization_exp
         self.retrain_seed = retrain_seed
 
-        # Move layers to specified device
+        # Move layers to a specified device
         self.input_layer = nn.Linear(self.input_dimension, self.neurons).to(self.dtype).to(device)
         self.hidden_layers = nn.ModuleList([
             nn.Linear(self.neurons, self.neurons).to(self.dtype).to(device)
