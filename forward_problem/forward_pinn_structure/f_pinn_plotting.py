@@ -10,22 +10,22 @@ from forward_problem.forward_pinn_structure.adding_f_pinn_points import AddingFP
 class FPINNPlotting(AddingFPINNPoints, ABC):
     pass
 
-    def relative_L2_error(self, n_points=10000):
+    def get_points(self, n_points):
         inputs = self.soboleng.draw(n_points)
         inputs = self.convert(inputs)
         inputs = inputs.to(self.dtype)
         output = self.approximate_solution(inputs).reshape(-1, )
         exact_output = self.exact_solution(inputs).reshape(-1, )
+        return inputs, output, exact_output
 
+    def relative_L2_error(self, n_points=10000):
+        inputs, output, exact_output = self.get_points(n_points)
         err = (torch.mean((output - exact_output) ** 2) / torch.mean(exact_output ** 2)) ** 0.5
         print('L2 Relative Error Norm: {:.6e}'.format(err.item()))
         return inputs, output, exact_output
 
-    def plotting_solution(self, n_points=50000):
+    def plotting_solution(self, n_points=100000):
         inputs, output, exact_output = self.relative_L2_error(n_points)
-        # inputs = inputs.cpu()
-        # output = output.cpu()
-        # exact_output = exact_output.cpu()
         fig, axs = plt.subplots(1, 2, figsize=(16, 8), dpi=150)
         im1 = axs[0].scatter(inputs[:, 1].detach(), inputs[:, 0].detach(), c=exact_output.detach(), cmap='jet')
         axs[0].set_xlabel('x')
@@ -73,31 +73,4 @@ class FPINNPlotting(AddingFPINNPoints, ABC):
         plt.plot(np.arange(1, len(hist) + 1), hist, label="Train Loss")
         plt.xscale("log")
         plt.legend()
-        plt.show()
-
-    @staticmethod
-    def plot_training_history(history):
-        """Plot training history including losses and learning rate."""
-
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
-
-        # Plot losses
-        ax1.plot(history['total_loss'], label='Total Loss')
-        ax1.plot(history['pde_loss'], label='PDE Loss')
-        ax1.plot(history['boundary_loss'], label='Boundary Loss')
-        ax1.set_yscale('log')
-        ax1.set_xlabel('Epoch')
-        ax1.set_ylabel('Loss')
-        ax1.legend()
-        ax1.grid(True)
-
-        # Plot learning rate
-        ax2.plot(history['learning_rate'], label='Learning Rate')
-        ax2.set_yscale('log')
-        ax2.set_xlabel('Epoch')
-        ax2.set_ylabel('Learning Rate')
-        ax2.legend()
-        ax2.grid(True)
-
-        plt.tight_layout()
         plt.show()

@@ -1,7 +1,7 @@
 import time
 
 from Common import TrainingConfig
-from forward_problem.equations.WaveEquation import WaveFPINN
+from forward_problem.equations.wave_pinn import WaveFPINN
 from forward_problem.equations.heat_pinn import HeatFPINN
 from forward_problem.equations.transport_pinn import TransportFPINN
 
@@ -48,23 +48,23 @@ from forward_problem.equations.transport_pinn import TransportFPINN
 
 # if __name__ == "__main__":
     # Configuration for ADAM
-adam_config = TrainingConfig(
-    num_epochs=1000,
-    early_stopping_patience=30,
-    scheduler_patience=20,
-    scheduler_factor=0.5,
-    scheduler_min_lr=1e-7
-)
+# adam_config = TrainingConfig(
+#     num_epochs=1000,
+#     early_stopping_patience=30,
+#     scheduler_patience=20,
+#     scheduler_factor=0.5,
+#     scheduler_min_lr=1e-7
+# )
 
 # Configuration for LBFGS
 lbfgs_config = TrainingConfig(
-    num_epochs=100,
+    num_epochs=200,
     early_stopping_patience=20,
-    max_iter=25,
+    max_iter=120,
 )
 start = time.time()
-pde = HeatFPINN(n_int=256, n_sb=64, n_tb=64)
-# pde.plot_training_points()
+pde = WaveFPINN(n_int=256*2, n_sb=64*2, n_tb=64*2, n_hidden_layers=6, neurons=30)
+pde.plot_training_points()
 
 optimizer = pde.optimizer_LBFGS(lbfgs_config)
 history = pde.enhanced_fit(
@@ -76,4 +76,4 @@ history = pde.enhanced_fit(
 end = time.time()
 print('Time taken: ', end - start)
 pde.plot_train_loss(history)
-pde.plotting_solution(10**4)
+pde.plotting_solution()

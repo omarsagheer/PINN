@@ -83,17 +83,13 @@ class DiffusionPDE(ForwardPINN):
         loss = super().compute_loss(train_points, verbose, right_boundary_loss, True)
         return loss
 
-    def relative_L2_error(self, n_points=10000):
-        path = r'/Users/omar/Desktop/PINN/exact_data.xlsx'
+    def get_points(self, n_points):
+        path = r'/Users/omar/Desktop/Thesis/thesis_code/PINN/firn_exact_data.xlsx'
         data = pd.read_excel(path, header=None)
         x = data[0].values
         t = data[1].values
         inputs = torch.tensor(np.stack((t, x), axis=1), dtype=self.dtype)
         output = self.approximate_solution(inputs).reshape(-1, )
-        # exact_output = self.exact_solution(inputs).reshape(-1, )
         exact_output = data[2].values.reshape(-1, )
         exact_output = torch.tensor(exact_output, dtype=output.dtype)
-
-        err = (torch.mean((output.detach() - exact_output) ** 2) / torch.mean(exact_output ** 2)) ** 0.5 * 100
-        print("L2 Relative Error Norm: ", err.item(), "%")
         return inputs, output, exact_output
