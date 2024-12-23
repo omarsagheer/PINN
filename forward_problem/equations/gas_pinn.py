@@ -55,7 +55,7 @@ class GasFPINN(ForwardPINN):
         right_side_2 = D_alpha*grad_u_xx/self.zf**2 - D_alpha*grad_u_x*self.M/self.zf
         right_side = right_side_1 + right_side_2
 
-        residual = left_side - right_side
+        residual = (left_side - right_side)
 
         return residual.reshape(-1, )
 

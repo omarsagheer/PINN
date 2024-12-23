@@ -49,11 +49,6 @@ class FPINNPlotting(AddingFPINNPoints, ABC):
         input_sb_right_, _= self.add_spatial_boundary_points_right()
         input_tb_, _ = self.add_temporal_boundary_points()
         input_int_, _ = self.add_interior_points()
-        #
-        # input_sb_left_ = copy.deepcopy(input_sb_left_).cpu()
-        # input_sb_right_ = copy.deepcopy(input_sb_right_).cpu()
-        # input_tb_ = copy.deepcopy(input_tb_).cpu()
-        # input_int_ = copy.deepcopy(input_int_).cpu()
 
         plt.figure(figsize=(16, 8), dpi=150)
         plt.scatter(input_sb_left_[:, 1].detach().numpy(), input_sb_left_[:, 0].detach().numpy(), label='Left Boundary Points')
