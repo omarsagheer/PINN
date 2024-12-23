@@ -4,10 +4,9 @@ from forward_problem.ForwardPINN import ForwardPINN
 
 
 class TransportFPINN(ForwardPINN):
-    def __init__(self, n_int, n_sb, n_tb, lambda_u=10, n_hidden_layers=4, neurons=20, regularization_param=0., regularization_exp=2., retrain_seed=42):
+    def __init__(self, n_int, n_sb, n_tb, **kwargs):
 
-        super().__init__(n_int, n_sb, n_tb, [0, 20], [0, 5], lambda_u, n_hidden_layers, neurons,
-                         regularization_param, regularization_exp, retrain_seed)
+        super().__init__(n_int, n_sb, n_tb, [0, 20], [0, 5], **kwargs)
         self.c = 1.0
 
     def initial_condition(self, x):

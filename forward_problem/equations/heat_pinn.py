@@ -6,10 +6,8 @@ from forward_problem.ForwardPINN import ForwardPINN
 
 
 class HeatFPINN(ForwardPINN):
-    def __init__(self, n_int, n_sb, n_tb,lambda_u=10, n_hidden_layers=4, neurons=20, regularization_param=0.,
-                 regularization_exp=2., retrain_seed=42):
-        super().__init__(n_int, n_sb, n_tb, [0, 1], [0,1], lambda_u, n_hidden_layers, neurons,
-                         regularization_param, regularization_exp, retrain_seed)
+    def __init__(self, n_int, n_sb, n_tb, **kwargs):
+        super().__init__(n_int, n_sb, n_tb, [0, 1], [0,1], **kwargs)
 
 
     def exact_solution(self, inputs):
