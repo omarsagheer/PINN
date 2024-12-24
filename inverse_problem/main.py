@@ -1,7 +1,7 @@
 import time
 
 from Common import TrainingConfig
-from forward_problem.equations.heat_pinn import HeatFPINN
+from inverse_problem.equations.heat_i_pinn import HeatIPINN
 
 # Configuration for ADAM
 # config = TrainingConfig(
@@ -16,10 +16,10 @@ from forward_problem.equations.heat_pinn import HeatFPINN
 config = TrainingConfig(
     num_epochs=100,
     early_stopping_patience=20,
-    max_iter=25,
+    max_iter=30,
 )
 start = time.time()
-pde = HeatFPINN(n_int=256, n_sb=64, n_tb=64)
+pde = HeatIPINN(n_int=256, n_sb=64, n_tb=64, n_sensors=50)
 pde.plot_training_points()
 
 optimizer = pde.optimizer_LBFGS(config)
@@ -32,4 +32,8 @@ history = pde.enhanced_fit(
 end = time.time()
 print('Time taken: ', end - start)
 pde.plot_train_loss(history)
-pde.plotting_solution()
+# pde
+pde.plotting_solution(function='pde')
+
+# coefficient
+pde.plotting_solution(function='coefficient')

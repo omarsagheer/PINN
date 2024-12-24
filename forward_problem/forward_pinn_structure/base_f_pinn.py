@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import torch
 
-from forward_problem.Common import NeuralNet
+from Common import NeuralNet
 
 
 class BaseFPINN(ABC):
