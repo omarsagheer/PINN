@@ -19,7 +19,7 @@ config = TrainingConfig(
     max_iter=30,
 )
 start = time.time()
-pde = HeatIPINN(n_int=256, n_sb=64, n_tb=64, n_sensors=50)
+pde = HeatIPINN(n_int=256, n_sb=64, n_tb=64, n_sensors=64)
 pde.plot_training_points()
 
 optimizer = pde.optimizer_LBFGS(config)

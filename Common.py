@@ -1,55 +1,47 @@
-import os
-
 import torch
 import torch.nn as nn
+import os
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+torch.manual_seed(42)
 
-class NeuralNet(nn.Module):
-    def __init__(self, input_dimension, output_dimension, n_hidden_layers, neurons,
-                 regularization_param, regularization_exp, retrain_seed, device):
-        super(NeuralNet, self).__init__()
 
-        self.device = device
-        self.dtype = torch.float64
+class PINN(nn.Module):
+    def __init__(self, input_dimension, output_dimension, n_hidden_layers, neurons, regularization_param, regularization_exp, retrain_seed):
+        super(PINN, self).__init__()
+        # regularisation parameters
         self.input_dimension = input_dimension
         self.output_dimension = output_dimension
-        self.neurons = neurons
         self.n_hidden_layers = n_hidden_layers
+        self.neurons = neurons
         self.activation = nn.Tanh()
         self.regularization_param = regularization_param
         self.regularization_exp = regularization_exp
-        self.retrain_seed = retrain_seed
 
-        # Move layers to a specified device
-        self.input_layer = nn.Linear(self.input_dimension, self.neurons).to(self.dtype).to(device)
-        self.hidden_layers = nn.ModuleList([
-            nn.Linear(self.neurons, self.neurons).to(self.dtype).to(device)
-            for _ in range(n_hidden_layers - 1)
-        ])
-        self.output_layer = nn.Linear(self.neurons, self.output_dimension).to(self.dtype).to(device)
+        # Create list of layer dimensions
+        self.input_layer = nn.Linear(self.input_dimension, self.neurons)
+        self.hidden_layers = nn.ModuleList([nn.Linear(self.neurons, self.neurons) for _ in range(n_hidden_layers - 1)])
+        self.output_layer = nn.Linear(self.neurons, self.output_dimension)
 
-        self.init_xavier()
+        # Initialize weights
+        self.init_xavier(retrain_seed)
 
     def forward(self, x):
-        x = x.to(self.dtype).to(self.device)
+        # The forward function performs the set of affine and non-linear transformations defining the network
         x = self.activation(self.input_layer(x))
-        for layer in self.hidden_layers:
-            x = self.activation(layer(x))
+        for k, l in enumerate(self.hidden_layers):
+            x = self.activation(l(x))
         return self.output_layer(x)
 
-    def init_xavier(self):
-        torch.manual_seed(self.retrain_seed)
+
+    def init_xavier(self, retrain_seed):
+        torch.manual_seed(retrain_seed)
 
         def init_weights(m):
             if type(m) == nn.Linear and m.weight.requires_grad and m.bias.requires_grad:
                 g = nn.init.calculate_gain('tanh')
                 torch.nn.init.xavier_uniform_(m.weight, gain=g)
                 m.bias.data.fill_(0)
-                # Move initialized weights to device
-                m.weight.data = m.weight.data.to(self.dtype).to(self.device)
-                m.bias.data = m.bias.data.to(self.dtype).to(self.device)
-
         self.apply(init_weights)
 
     def regularization(self):
@@ -110,5 +102,6 @@ class TrainingConfig:
     lr: float = 0.5
     history_size: int = 50
     line_search_fn: str = 'strong_wolfe'
+
 
 

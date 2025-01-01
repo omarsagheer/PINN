@@ -4,16 +4,14 @@ import numpy as np
 import torch
 from matplotlib import pyplot as plt
 
-from forward_problem.forward_pinn_structure.adding_f_pinn_points import AddingFPINNPoints
+from forward_problem.forward_pinn_structure.base_f_pinn import BaseFPINN
 
 
-class FPINNPlotting(AddingFPINNPoints, ABC):
-    pass
+class UtilFPINN(BaseFPINN, ABC):
+    """Utility class for the forward PINN structure."""
 
     def get_points(self, n_points):
-        inputs = self.soboleng.draw(n_points)
-        inputs = self.convert(inputs)
-        inputs = inputs.to(self.dtype)
+        inputs = self.generate_sobol_points(n_points)
         output = self.approximate_solution(inputs).reshape(-1, )
         exact_output = self.exact_solution(inputs).reshape(-1, )
         return inputs, output, exact_output
@@ -26,6 +24,8 @@ class FPINNPlotting(AddingFPINNPoints, ABC):
 
     def plotting_solution(self, n_points=100000):
         inputs, output, exact_output = self.relative_L2_error(n_points)
+        inputs = inputs.cpu()
+        output = output.cpu()
         fig, axs = plt.subplots(1, 2, figsize=(16, 8), dpi=150)
         im1 = axs[0].scatter(inputs[:, 1].detach(), inputs[:, 0].detach(), c=exact_output.detach(), cmap='jet')
         axs[0].set_xlabel('x')
@@ -67,5 +67,7 @@ class FPINNPlotting(AddingFPINNPoints, ABC):
         plt.grid(True, which="both", ls=":")
         plt.plot(np.arange(1, len(hist) + 1), hist, label="Train Loss")
         plt.xscale("log")
+        plt.xlabel("Epoch")
+        plt.ylabel('Log10 Loss')
         plt.legend()
         plt.show()

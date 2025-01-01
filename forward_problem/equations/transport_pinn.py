@@ -42,8 +42,8 @@ class TransportFPINN(ForwardPINN):
         grad_u_x = grad_u[:, 1]
         return self.ms(grad_u_x - self.right_boundary_condition(inp_train_sb_right[:, 0]))
 
-    def compute_loss(self, train_points, verbose=True, new_loss=None, no_right_boundary=None):
+    def compute_loss(self, train_points, new_loss=None, no_right_boundary=None):
         inp_train_sb_right = train_points[2]
         right_boundary_loss = self.apply_right_boundary_derivative(inp_train_sb_right)
-        loss = super().compute_loss(train_points, verbose, right_boundary_loss, no_right_boundary=True)
+        loss = super().compute_loss(train_points, right_boundary_loss, no_right_boundary=True)
         return loss

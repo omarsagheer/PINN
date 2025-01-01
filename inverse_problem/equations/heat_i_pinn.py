@@ -6,7 +6,7 @@ from inverse_problem.InversePINN import InversePINN
 
 class HeatIPINN(InversePINN):
     def __init__(self, n_int, n_sb, n_tb, n_sensors, **kwargs):
-        super().__init__(n_int, n_sb, n_tb, n_sensors,[0, 1], [0,1], **kwargs)
+        super().__init__(n_int, n_sb, n_tb, n_sensors,[0, 1], [0, 1], **kwargs)
 
 
     def exact_solution(self, inputs):

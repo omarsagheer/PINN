@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import torch
 
 from Common import NeuralNet
-
+torch.manual_seed(128)
 
 class BaseIPINN(ABC):
     def __init__(self, n_int, n_sb, n_tb, n_sensors, time_domain=None, space_domain=None, lambda_u=10,

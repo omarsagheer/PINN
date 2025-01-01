@@ -48,10 +48,10 @@ class WaveFPINN(ForwardPINN):
         residual = (grad_u_tt - self.c ** 2 * grad_u_xx)/self.c**2
         return residual.reshape(-1, )
 
-    def compute_loss(self, train_points, verbose=True, new_loss=None, no_right_boundary=False):
+    def compute_loss(self, train_points, new_loss=None, no_right_boundary=False):
         inp_train_tb = train_points[4]
         initial_derivative_loss = self.apply_initial_derivative_condition(inp_train_tb)
-        loss = super().compute_loss(train_points, verbose, initial_derivative_loss, no_right_boundary)
+        loss = super().compute_loss(train_points, initial_derivative_loss, no_right_boundary)
         return loss
 
 
