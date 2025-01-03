@@ -5,8 +5,7 @@ import torch.nn as nn
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 class NeuralNet(nn.Module):
-    def __init__(self, input_dimension, output_dimension, n_hidden_layers, neurons,
-                 regularization_param, regularization_exp, retrain_seed, device):
+    def __init__(self, input_dimension, output_dimension, n_hidden_layers, neurons, retrain_seed, device):
         super(NeuralNet, self).__init__()
 
         self.device = device
@@ -16,8 +15,8 @@ class NeuralNet(nn.Module):
         self.neurons = neurons
         self.n_hidden_layers = n_hidden_layers
         self.activation = nn.Tanh()
-        self.regularization_param = regularization_param
-        self.regularization_exp = regularization_exp
+        # self.regularization_param = regularization_param
+        # self.regularization_exp = regularization_exp
         self.retrain_seed = retrain_seed
 
         # Move layers to a specified device
@@ -51,12 +50,12 @@ class NeuralNet(nn.Module):
 
         self.apply(init_weights)
 
-    def regularization(self):
-        reg_loss = 0
-        for name, param in self.named_parameters():
-            if 'weight' in name:
-                reg_loss = reg_loss + torch.norm(param, self.regularization_exp)
-        return self.regularization_param * reg_loss
+    # def regularization(self):
+    #     reg_loss = 0
+    #     for name, param in self.named_parameters():
+    #         if 'weight' in name:
+    #             reg_loss = reg_loss + torch.norm(param, self.regularization_exp)
+    #     return self.regularization_param * reg_loss
 
 
 class EarlyStopping:
