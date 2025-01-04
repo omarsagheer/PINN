@@ -110,6 +110,3 @@ class TrainingConfig:
     lr: float = 0.5
     history_size: int = 50
     line_search_fn: str = 'strong_wolfe'
-
-
-
